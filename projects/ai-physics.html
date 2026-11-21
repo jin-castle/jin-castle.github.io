@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI × Physics · Jinseong Bae</title>
+<meta name="description" content="메타표면 surrogate(Meta-JEPA)가 언제 물리 계산을 대신하지 못하는지 원인을 분리한 실험과, 공정 모델을 넣은 DOE·복원망 공동 설계로 0차 누설을 줄인 미분 이미징.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<meta property="og:url" content="https://jin-castle.github.io/projects/ai-physics.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="AI × Physics · Jinseong Bae">
+<meta property="og:description" content="메타표면 surrogate(Meta-JEPA)가 언제 물리 계산을 대신하지 못하는지 원인을 분리한 실험과, 공정 모델을 넣은 DOE·복원망 공동 설계로 0차 누설을 줄인 미분 이미징.">
+<meta property="og:image" content="https://jin-castle.github.io/img/og-ai-physics.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link rel="stylesheet" href="./project.css">
+<link rel="alternate" hreflang="ko" href="https://jin-castle.github.io/projects/ai-physics.html">
+<link rel="alternate" hreflang="en" href="https://jin-castle.github.io/en/projects/ai-physics.html">
+<link rel="alternate" hreflang="x-default" href="https://jin-castle.github.io/projects/ai-physics.html">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="../index.html">Jinseong Bae</a>
+  <nav><a class="lang" href="../en/projects/ai-physics.html" hreflang="en" lang="en">EN</a><a href="../index.html#ai-physics">← 홈으로</a><a class="hide-sm" href="./ar-waveguide.html">다음 프로젝트 →</a></nav>
+</header>
+
+<div class="hero">
+  <p class="idx">04 — AI × PHYSICS · Surrogates &amp; differentiable optics</p>
+  <h1>신경망 surrogate가<br>물리 계산을 대신할 수 있는지 검증하다</h1>
+  <p class="lead">두 실험입니다. 하나는 싼 저충실도 계산으로 사전학습한 신경망이 메타표면 근접장을 예측할 수 있는지 시험하고, 실패의 원인을 분리했습니다(Meta-JEPA). 다른 하나는 광학 소자와 복원 신경망을 함께 학습할 때 제작 공정 효과를 미분 가능하게 넣으면 무엇이 달라지는지 확인했습니다(미분 이미징).</p>
+  <ul class="kpis">
+    <li><b>≈ 0.5</b><span>근접장 상대 L2 오차, 저차 RCWA 2만 개 학습 · 고차 테스트</span></li>
+    <li><b>N<sup>−0.07</sup></b><span>학습 곡선 기울기 — 데이터를 늘려도 거의 줄지 않음</span></li>
+    <li><b>3.2 → 0.06<small>%</small></b><span>DOE 0차 누설, 공정 모델을 넣은 공동 설계</span></li>
+    <li><b>1.28 → 0.71<small>px</small></b><span>공정 조건에서 깊이 추정 오차(EPE)</span></li>
+  </ul>
+  <p class="tags"><span>PyTorch</span><span>fmmax RCWA</span><span>FNO · JEPA</span><span>PADO</span><span>1D/2D RCWA 보정</span></p>
+</div>
+
+<div class="wrap">
+  <nav class="toc" aria-label="목차">
+    <a href="#jepa">A. Meta-JEPA</a><a href="#jepa-setup">설정</a><a href="#jepa-results">결과와 원인 분리</a>
+    <a href="#diffimg">B. 미분 이미징</a><a href="#di-setup">설정</a><a href="#di-results">결과</a>
+    <a href="#limits">한계</a><a href="#code">코드</a>
+  </nav>
+  <article>
+    <section id="jepa">
+      <h2>A. Meta-JEPA 파일럿 — No-go와 그 이유</h2>
+      <p>고충실도 RCWA는 비쌉니다. 싼 저차 RCWA 수만 개로 잠재 표현을 배우고, 고차 라벨 50개 이하로 적응하면 쓸 만한 surrogate가 될까? 시작 전에 Go 조건을 정해 두었습니다: <strong>라벨 50개 이하에서 FNO 대비 오차 절반 이하, 잠재 표현 probe R² 0.9 이상</strong>.</p>
+      <p>결론은 No-go입니다. 더 중요한 결과는 왜 안 되는지를 분리한 것입니다. 처음에는 저차와 고차의 충실도 차이 때문이라고 봤지만, 그 차이를 없앤 시험에서도 오차가 그대로여서 원인은 <strong>처음 보는 형상으로의 일반화</strong>였습니다.</p>
+    </section>
+
+    <section id="jepa-setup">
+      <h2>설정</h2>
+      <table class="spec">
+        <tr><th>물리 모델</th><td>2D TE, fmmax RCWA. 주기 1.2 µm, TiO₂(n 2.4) 기둥 8슬롯(폭·오프셋 16 파라미터), 높이 0.6 µm, 유리 기판 n 1.45</td></tr>
+        <tr><th>조건</th><td>λ 0.40–0.70 µm, 입사각 0–30°</td></tr>
+        <tr><th>충실도</th><td>저차 M = 8 → M = 16, 고차 M = 40 (Fourier 차수 반폭)</td></tr>
+        <tr><th>출력</th><td>세 평면의 근접장 Ey·Hx·Hz와 |m| ≤ 3 회절 효율</td></tr>
+        <tr><th>데이터</th><td>사전학습 저차 20,000개(λ 0.45–0.65) · 적응 고차 최대 200개 · 테스트 고차 500개(범위 밖 파장 포함)</td></tr>
+        <tr><th>모델</th><td>3.0M 파라미터. 슬롯 transformer 인코더, (λ, θ) 조건 predictor, INR 디코더, 효율 보조 헤드. 비교: FNO 1D, 처음부터 학습</td></tr>
+        <tr><th>오차 지표</th><td>테스트 근접장의 상대 L2 (0.5 ≈ 50 %)</td></tr>
+      </table>
+      <figure><a href="./img/ai-physics/jepa_data.webp"><img src="./img/ai-physics/jepa_data.webp" alt="충실도별 근접장 비교" loading="lazy"></a>
+        <figcaption><b>그림 1</b>같은 형상을 M = 40/16/8로 푼 근접장과 회절 효율, 충실도 차이 분포. M = 16에서 차이 중앙값 0.049로, M = 8(0.313)보다 6배 작습니다.</figcaption></figure>
+    </section>
+
+    <section id="jepa-results">
+      <h2>결과와 원인 분리</h2>
+      <table class="spec">
+        <tr><th>M = 8 사전학습</th><td>Meta-JEPA 0.597 → 적응 200개 0.559 · FNO 0.507 → 0.500. probe R² 약 0.1</td></tr>
+        <tr><th>M = 16 사전학습</th><td>FNO 0.532 · Meta-JEPA 0.538 → 적응 0.525 · 고차 라벨만 0.788 · 큰 FNO(폭 256) 0.478</td></tr>
+        <tr><th>학습 곡선 (FNO)</th><td>N = 2.5k/5k/10k/20k → 0.610/0.579/0.560/0.532, 오차 ∝ N<sup>−0.07</sup></td></tr>
+        <tr><th>잔차 학습</th><td>저차 해를 입력으로 넣고 고차와의 차이만 배우면 0.313 → 0.251 (M = 8), 0.049 → 0.039 (M = 16)</td></tr>
+      </table>
+      <h3>원인을 가른 대조 실험</h3>
+      <p>충실도 차이가 원인이라면, 고차 대신 학습과 같은 저차(M = 16)로 푼 보류 테스트에서는 오차가 크게 줄어야 합니다. 결과는 0.529로 거의 같았습니다. <strong>충실도 차이를 0으로 만들어도 오차가 남으니, 남은 오차는 새 형상에 대한 일반화 오차</strong>입니다. M = 8 시점의 "충실도 차이가 지배한다"는 첫 판단을 이 실험이 뒤집었습니다.</p>
+      <div class="figs">
+        <figure><a href="./img/ai-physics/jepa_run2.webp"><img src="./img/ai-physics/jepa_run2.webp" alt="라벨 효율 판정 그림" loading="lazy"></a>
+          <figcaption><b>그림 2</b>M = 8 판정: 라벨 수에 따른 오차, 평면별 오차, 보조 헤드, 잠재 probe, 사전학습 곡선.</figcaption></figure>
+        <figure><a href="./img/ai-physics/jepa_resid.webp"><img src="./img/ai-physics/jepa_resid.webp" alt="잔차 학습 판정 그림" loading="lazy"></a>
+          <figcaption><b>그림 3</b>잔차 학습: 라벨 효율, 평면별 오차, 학습 범위 안팎 파장에서의 오차.</figcaption></figure>
+      </div>
+      <p class="note">0.5 근처에 모든 모델이 멈춘 것은 아닙니다. 큰 FNO는 0.478까지 내려갔지만 학습 손실이 0.0003으로 과적합 상태였습니다. 그래서 "≈ 0.48–0.54"로 적습니다.</p>
+    </section>
+
+    <section id="diffimg">
+      <h2>B. 미분 이미징 — 공정 모델을 넣은 HW·SW 공동 설계</h2>
+      <p>학습형 구조광 스테레오(Polka Lines, CVPR 2021)를 오픈소스 PADO로 단순화해 재현했습니다. 회절 광학 소자(DOE)가 점 패턴을 쏘고, 신경망이 두 카메라 영상에서 깊이를 복원합니다. 문제는 이상적인 얇은 소자 모델로 학습한 DOE가 실제 제작(8단계 높이 양자화, 식각 오차, 가장자리 회절)을 거치면 무너진다는 점입니다.</p>
+      <p>그래서 RCWA로 보정한 공정 모델을 미분 가능하게 만들어 학습 루프에 넣었습니다. 특히 눈 안전과 직결되는 <strong>0차 누설</strong>(회절되지 않고 곧장 나가는 빛)이 얼마나 줄어드는지를 봤습니다.</p>
+    </section>
+
+    <section id="di-setup">
+      <h2>설정</h2>
+      <table class="spec">
+        <tr><th>광학</th><td>940 nm, DOE 128 × 128 (피치 1.5 µm), 시야 36°, 카메라 기준선 50 mm, 깊이 0.2–1 m, Fraunhofer 전파</td></tr>
+        <tr><th>센서</th><td>1/z² 감쇠, 가우시안 블러 σ 0.7, 샷·읽기 노이즈, 포화</td></tr>
+        <tr><th>공정 모델</th><td>자체 1D RCWA(S-행렬 + Li 인수분해)로 보정한 가장자리 프록시. 용융 실리카 n 1.451, 8단계 높이, 식각 오차 σ 3 %</td></tr>
+        <tr><th>복원망</th><td>상관 cost volume → 2D U-Net → soft-argmin</td></tr>
+        <tr><th>손실</th><td>smooth-L1(disparity) + 200 · max(0, 0차 − 0.5 %)</td></tr>
+      </table>
+      <figure><a href="./img/ai-physics/polka_compare.webp"><img src="./img/ai-physics/polka_compare.webp" alt="패시브 랜덤 학습 DOE 비교" loading="lazy"></a>
+        <figcaption><b>그림 4</b>재현 단계: 프로젝터 없음 / 랜덤 위상 DOE / 학습 DOE의 패턴, 촬영 영상, 깊이 오차. EPE 4.47 → 0.79 → 0.69 px.</figcaption></figure>
+      <div class="figs">
+        <figure><a href="./img/ai-physics/proxy_cal.webp"><img src="./img/ai-physics/proxy_cal.webp" alt="1D RCWA 보정" loading="lazy"></a>
+          <figcaption><b>그림 5</b>가장자리 프록시를 1D RCWA로 보정: 차수 효율 오차 21 → 5.6 %.</figcaption></figure>
+        <figure><a href="./img/ai-physics/proxy_2d.webp"><img src="./img/ai-physics/proxy_2d.webp" alt="2D fmmax 검증" loading="lazy"></a>
+          <figcaption><b>그림 6</b>2D fmmax로 검증: 오차 29 → 10.9 %.</figcaption></figure>
+      </div>
+    </section>
+
+    <section id="di-results">
+      <h2>결과</h2>
+      <figure><a href="./img/ai-physics/fab_aware.webp"><img src="./img/ai-physics/fab_aware.webp" alt="공정 인지 공동 설계" loading="lazy"></a>
+        <figcaption><b>그림 7</b>위: 설계 그대로의 DOE, 공정을 거친 같은 DOE, 공동 설계 DOE. 아래: 공정 효과를 단계별로 더할 때의 EPE, 공정 조건 평가, 학습 중 0차 누설.</figcaption></figure>
+      <table class="spec">
+        <tr><th>공정 효과 분해</th><td>EPE 0.69(이상) → 1.02 → 1.09 → 1.28 → 1.28 px (8단계, 엄밀 모델, 식각 오차 순)</td></tr>
+        <tr><th>신경망만 재학습</th><td>EPE 0.739 px, 0차 3.2 % 그대로</td></tr>
+        <tr><th>DOE까지 공동 설계</th><td>EPE <strong>0.708 px</strong>, 0차 <strong>0.06 %</strong> (8회 평균 0.00063 ± 0.00060)</td></tr>
+      </table>
+      <p>대조군 덕분에 역할이 갈렸습니다. <strong>깊이 오차 회복은 대부분 신경망 몫이고, 0차 억제는 하드웨어(DOE) 몫</strong>입니다. 같은 높이 이웃 비율은 0.13으로 그대로라, 0차 억제는 구조를 매끈하게 만들어서가 아니라 위상 균형을 조정해서 얻었습니다.</p>
+    </section>
+
+    <section id="limits">
+      <h2>한계와 주장하지 않는 것</h2>
+      <div class="claims">
+        <div><h3>주장하는 것</h3><ul>
+          <li>Meta-JEPA 실패의 원인이 충실도가 아니라 형상 일반화임을 대조 실험으로 분리했다</li>
+          <li>공정 모델을 학습에 넣으면 0차 누설을 하드웨어 쪽에서 줄일 수 있다</li>
+        </ul></div>
+        <div class="no"><h3>주장하지 않는 것</h3><ul>
+          <li>Meta-JEPA는 seed 1개, Meep 교차 검증과 비주기 구조 시험은 없다</li>
+          <li>공동 설계 DOE 전체는 풀웨이브로 계산하지 않았다 (2D 검증 셀 5개)</li>
+          <li>DOE 공동 설계의 깊이 정확도 추가 이득은 0.03 px로 작다</li>
+          <li>제작·실측 촬영은 하지 않았다</li>
+        </ul></div>
+      </div>
+    </section>
+
+    <section id="code">
+      <h2>코드 구성</h2>
+      <h3>Meta-JEPA</h3>
+      <ul>
+        <li><code>data/gen_fmmax.py</code> — RCWA 데이터 생성 (R + T = 1 ± 1e-14 검사)</li>
+        <li><code>model/metajepa.py</code>, <code>train.py</code> — 모델과 사전학습·적응·FNO·잔차 모드</li>
+        <li><code>run_m16*.py</code>, <code>make_figure*.py</code> — 재실험과 판정 그림</li>
+      </ul>
+      <h3>미분 이미징</h3>
+      <ul>
+        <li><code>stage1_polka/model.py</code>, <code>train.py</code> — 구조광 스테레오 재현</li>
+        <li><code>stage2_fab/rcwa1d.py</code>, <code>proxy.py</code>, <code>fabsim.py</code> — RCWA와 공정 프록시</li>
+        <li><code>stage2_fab/train_fab.py --mode joint</code>, <code>eval_fab.py</code> — 공동 설계와 평가</li>
+      </ul>
+      <p>2026년 10월 31일 – 11월 2일 작업입니다. 미분 이미징은 공개 자료(PADO, Polka Lines, DPS)만 사용했습니다.</p>
+    </section>
+  </article>
+</div>
+
+<nav class="pager">
+  <a href="./mock-tapeout.html"><small>← 이전</small>Silicon Photonics · 모의 테이프아웃</a>
+  <a class="next" href="./ar-waveguide.html"><small>다음 →</small>AR Waveguide</a>
+</nav>
+<footer>© 2026 Jinseong Bae · 그림은 모두 본인 계산 출력입니다. 무단 복제·재배포 금지 · <a href="../LICENSE.txt">LICENSE</a></footer>
+<script src="./project.js"></script>
+</body>
+</html>

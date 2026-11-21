@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MetaStudio · Jinseong Bae</title>
+<meta name="description" content="렌즈 스펙 한 줄에서 메타렌즈 GDS·ASM 검증·3D 뷰어까지 잇는 메타표면 자동 설계 도구와, 고 NA에서 LPA 모델을 Meep 3D와 비교한 검증.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<meta property="og:url" content="https://jin-castle.github.io/projects/metastudio.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="MetaStudio · Jinseong Bae">
+<meta property="og:description" content="렌즈 스펙 한 줄에서 메타렌즈 GDS·ASM 검증·3D 뷰어까지 잇는 메타표면 자동 설계 도구와, 고 NA에서 LPA 모델을 Meep 3D와 비교한 검증.">
+<meta property="og:image" content="https://jin-castle.github.io/img/og-metastudio.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link rel="stylesheet" href="./project.css">
+<link rel="alternate" hreflang="ko" href="https://jin-castle.github.io/projects/metastudio.html">
+<link rel="alternate" hreflang="en" href="https://jin-castle.github.io/en/projects/metastudio.html">
+<link rel="alternate" hreflang="x-default" href="https://jin-castle.github.io/projects/metastudio.html">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="../index.html">Jinseong Bae</a>
+  <nav><a class="lang" href="../en/projects/metastudio.html" hreflang="en" lang="en">EN</a><a href="../index.html#metasurface">← 홈으로</a><a class="hide-sm" href="./grating-coupler.html">다음 프로젝트 →</a></nav>
+</header>
+
+<div class="hero">
+  <p class="idx">01 — METASURFACE · MetaStudio</p>
+  <h1>메타렌즈 설계를<br>하나의 파이프라인으로 자동화하다</h1>
+  <p class="lead">렌즈 스펙(YAML)을 넣으면 명령 한 줄(약 14초)로 단위셀 라이브러리 조회 → 필러 배치 → GDS → 집속 검증 → 브라우저 3D 뷰어 데이터까지 만드는 메타렌즈 자동 설계 도구입니다. 함께, 이 도구가 기대는 국소 주기 근사(LPA)가 NA가 높아질 때 풀웨이브와 얼마나 어긋나는지를 Meep 3D로 따로 확인했습니다.</p>
+  <ul class="kpis">
+    <li><b>78.4<small>%</small></b><span>집속 효율, Ø 50 µm · f 100 µm (LPA + ASM 모델)</span></li>
+    <li><b>31,064</b><span>TiO₂ 필러, λ 532 nm</span></li>
+    <li><b>0.067<small>rad</small></b><span>목표 위상 대비 RMS 위상 오차</span></li>
+    <li><b>−3 ~ +5<small>%p</small></b><span>Meep 3D 대비 LPA 효율 차이 (D 8 µm, NA 0.3–0.85)</span></li>
+  </ul>
+  <p class="tags"><span>meent RCWA</span><span>Meep 3D · cylindrical</span><span>angular spectrum</span><span>gdsfactory</span><span>three.js</span></p>
+</div>
+
+<div class="wrap">
+  <nav class="toc" aria-label="목차">
+    <a href="#why">문제와 동기</a><a href="#setup">시뮬레이션 설정</a><a href="#method">파이프라인</a>
+    <a href="#results">결과</a><a href="#validation">풀웨이브 검증</a><a href="#limits">한계</a><a href="#code">코드</a>
+  </nav>
+  <article>
+    <section id="why">
+      <h2>문제와 동기</h2>
+      <p>메타렌즈 설계는 보통 단위셀 계산, 위상 배치, 전파 검증, 레이아웃이 서로 다른 스크립트로 흩어져 있습니다. 스펙에서 시작해 제작 파일과 검증 결과, 3D 확인까지 한 번에 잇는 공개 도구를 찾지 못해 직접 묶었습니다.</p>
+      <p>두 번째 질문은 그 도구의 전제입니다. 필러 하나하나를 무한 주기 배열 속에 있다고 보고 위상을 빌려 쓰는 LPA는 위상이 급하게 변하는 고 NA 렌즈 가장자리에서 틀어지기 쉽습니다. <strong>어디까지 믿어도 되는지</strong>를 풀웨이브로 재지 않으면 효율 숫자를 주장할 수 없습니다.</p>
+    </section>
+
+    <section id="setup">
+      <h2>시뮬레이션 설정</h2>
+      <h3>단위셀 라이브러리 (RCWA)</h3>
+      <table class="spec">
+        <tr><th>솔버</th><td>meent (RCWA), Fourier 차수 fto 7, 래스터 256²</td></tr>
+        <tr><th>구조</th><td>SiO₂ 기판 위 원형 TiO₂ 필러, 높이 600 nm, 정사각 격자 피치 250 nm</td></tr>
+        <tr><th>스윕</th><td>지름 50–220 nm, 5 nm 간격 35개</td></tr>
+        <tr><th>재료</th><td>TiO₂ n 2.40 (분산 없음), SiO₂ n 1.4607</td></tr>
+        <tr><th>입사</th><td>λ 532 nm, TE 수직 입사</td></tr>
+      </table>
+      <h3>렌즈 검증 (ASM)</h3>
+      <table class="spec">
+        <tr><th>전파</th><td>각스펙트럼법(ASM), 비근축 전파자, 소멸파 제외, 스칼라</td></tr>
+        <tr><th>격자</th><td>dx 125 nm (필러 피치의 1/2), 1024², 패딩 2배</td></tr>
+        <tr><th>근접장 모델</th><td>대역제한(band-limited) LPA가 기본, 계단식(piecewise) LPA 선택 가능</td></tr>
+        <tr><th>효율 정의</th><td>z = f 평면에서 방위각 평균 |E|²의 첫 영점 안 파워 ÷ 렌즈 개구 입사 파워</td></tr>
+      </table>
+      <h3>풀웨이브 비교 (Meep 3D)</h3>
+      <table class="spec">
+        <tr><th>대상</th><td>D 8 µm, 필러 740개 렌즈, NA 0.3 / 0.5 / 0.7 / 0.85</td></tr>
+        <tr><th>셀</th><td>9 × 9 × 3 µm, 해상도 40 px/µm, 측면 주기 경계, z 방향 PML 0.5 µm</td></tr>
+        <tr><th>소스·모니터</th><td>기판 안 Ex 가우시안 펄스, 필러 위 0.5 µm 평면에서 Ex·Ey·Ez DFT, 필러 없는 기준 run으로 정규화</td></tr>
+        <tr><th>원거리</th><td>근접장을 성분별 ASM으로 z = f까지 전파</td></tr>
+      </table>
+    </section>
+
+    <section id="method">
+      <h2>파이프라인</h2>
+      <ol class="steps">
+        <li><b>라이브러리</b>지름 35개를 RCWA로 풀어 위상·투과를 표로 만듭니다 (288초). 위상 범위 2.12π, 평균 |t|² 0.965.</li>
+        <li><b>위상 배치</b>쌍곡 위상을 목표로, 원형 위상 거리 최근접 지름을 고릅니다. 전역 위상 상수 48개를 탐색해 오차가 가장 작은 값을 쓰고, |t| &lt; 0.5인 셀은 뺍니다.</li>
+        <li><b>집속 검증</b>LPA 근접장을 ASM으로 초점까지 전파해 효율, FWHM, Strehl을 계산합니다.</li>
+        <li><b>GDS</b>gdsfactory로 지름별 셀을 인스턴스로 배치합니다 (2.73 MB, 3초).</li>
+        <li><b>3D 뷰어</b>three.js InstancedMesh로 필러를 그리고, 위상 오차를 색으로, 초점면 |E|²를 텍스처로 올립니다.</li>
+      </ol>
+      <figure><a href="./img/metastudio/library.webp"><img src="./img/metastudio/library.webp" alt="필러 지름에 따른 위상과 투과율" loading="lazy"></a>
+        <figcaption><b>그림 1</b>필러 지름에 따른 위상(파랑)과 0차 투과율(주황). 50–220 nm에서 위상이 2π 이상 돌고 투과율은 0.89 이상을 유지합니다.</figcaption></figure>
+    </section>
+
+    <section id="results">
+      <h2>결과 — Ø 50 µm, f 100 µm 렌즈</h2>
+      <p>필러 31,064개, 프레넬 존 5.7개 렌즈입니다. 목표 위상 대비 RMS 오차 0.067 rad(최대 0.143), 평균 |t| 0.982로 배치됐습니다.</p>
+      <figure><a href="./img/metastudio/psf_report.webp"><img src="./img/metastudio/psf_report.webp" alt="ASM 검증 리포트" loading="lazy"></a>
+        <figcaption><b>그림 2</b>위: 목표 위상, 고른 필러 지름, 위상 오차. 아래: 초점면 |E|², 축 단면, 방위각 평균 PSF와 같은 NA의 Airy 패턴.</figcaption></figure>
+      <table class="spec">
+        <tr><th>집속 효율</th><td><strong>78.4 %</strong> (같은 개구의 이상 렌즈 81.9 %)</td></tr>
+        <tr><th>투과</th><td>95.2 %</td></tr>
+        <tr><th>FWHM</th><td>1.194 µm (회절 한계 1.127 µm)</td></tr>
+        <tr><th>Strehl</th><td>0.944</td></tr>
+        <tr><th>초점 위치</th><td>z = 99 µm (설계 100 µm)</td></tr>
+      </table>
+      <div class="figs">
+        <figure class="dark"><a href="./img/metastudio/viewer_hold.webp"><img src="./img/metastudio/viewer_hold.webp" alt="3D 뷰어 전체 장면" loading="lazy"></a>
+          <figcaption><b>그림 3</b>브라우저 3D 뷰어. 같은 설계 파일에서 렌즈와 초점면을 그립니다. 광추와 광선은 연출입니다.</figcaption></figure>
+        <figure class="dark"><a href="./img/metastudio/viewer_near.webp"><img src="./img/metastudio/viewer_near.webp" alt="필러 근접 장면" loading="lazy"></a>
+          <figcaption><b>그림 4</b>필러 근접. 색은 필러별 위상 오차입니다.</figcaption></figure>
+      </div>
+      <p>뷰어는 실제 렌즈(필러 31,064개)를 60 fps로 그립니다. 필러 10⁶개 벤치마크(무작위 배치)는 노트북 내장 GPU(Intel Arc 140V)에서 13.6–27.5 fps로, 조작은 되지만 매끄럽지는 않습니다.</p>
+    </section>
+
+    <section id="validation">
+      <h2>풀웨이브 검증 — LPA는 어디까지 맞나</h2>
+      <p>50 µm 렌즈 전체를 3D 풀웨이브로 풀 수는 없어서, 같은 라이브러리로 만든 D 8 µm(필러 740개) 렌즈를 NA 0.3–0.85에서 Meep 3D로 풀고 세 가지 LPA 모델과 비교했습니다.</p>
+      <figure><a href="./img/metastudio/hina_summary.webp"><img src="./img/metastudio/hina_summary.webp" alt="NA별 LPA 모델과 Meep 효율 비교" loading="lazy"></a>
+        <figcaption><b>그림 5</b>NA별 집속 효율(왼쪽), 투과와 효율 비(가운데), 필러별 위상 오차(오른쪽). 빨강이 Meep 3D입니다.</figcaption></figure>
+      <table class="spec">
+        <tr><th>NA</th><td>0.3 · 0.5 · 0.7 · 0.85</td></tr>
+        <tr><th>Meep 3D</th><td>79.7 · 79.2 · 66.5 · 63.1 %</td></tr>
+        <tr><th>대역제한 LPA</th><td>79.2 · 76.1 · 69.2 · 58.0 %</td></tr>
+        <tr><th>계단식 LPA</th><td>77.2 · 70.7 · 59.2 · 44.6 %</td></tr>
+      </table>
+      <p>계단식 LPA는 NA 0.85에서 효율을 18 %p 넘게 낮게 봅니다. 대역제한 LPA는 Meep와 −2.7 ~ +5.1 %p 안에 들어 <strong>기본 검증 모델을 대역제한 LPA로 바꿨습니다</strong>. 그 결과 50 µm 렌즈 효율도 77.6 %(계단식)에서 78.4 %로 갱신됐습니다.</p>
+      <figure><a href="./img/metastudio/na085_compare.webp"><img src="./img/metastudio/na085_compare.webp" alt="NA 0.85 Meep와 LPA 판정 그림" loading="lazy"></a>
+        <figcaption><b>그림 6</b>NA 0.85: 레이아웃, LPA와 Meep의 초점면, 필러별 위상 차이, 위상 기울기에 따른 LPA 오차, PSF 단면.</figcaption></figure>
+      <h3>수렴과 교차 확인</h3>
+      <ul>
+        <li>RCWA 차수 fto 7 → 13: 위상 차이 0.4°. 빈 셀에서 T + R = 1, 프레넬 값과 일치.</li>
+        <li>Meep 해상도 40 → 60 (NA 0.7): 필러별 위상 RMS 차이 0.031 rad, 효율 66.5 → 66.1 %.</li>
+        <li>측면 경계를 PML로 바꿔도 효율 차이 1 %p 이내.</li>
+        <li>50 µm 렌즈는 축대칭 균질화 대리 소자로 Meep cylindrical을 돌려 해상도 20/30/45에서 59.0/67.0/68.9 %, 외삽 약 70.5 %를 얻었습니다. LPA보다 6–8 %p 낮습니다.</li>
+      </ul>
+    </section>
+
+    <section id="limits">
+      <h2>한계와 주장하지 않는 것</h2>
+      <div class="claims">
+        <div><h3>주장하는 것</h3><ul>
+          <li>스펙 → GDS → 검증 → 3D가 한 명령으로 이어진다</li>
+          <li>D 8 µm, NA 0.3–0.85에서 대역제한 LPA가 Meep 3D와 −3 ~ +5 %p 안에 든다</li>
+        </ul></div>
+        <div class="no"><h3>주장하지 않는 것</h3><ul>
+          <li>50 µm 렌즈의 78.4 %는 모델 값이며 이 렌즈의 풀웨이브 결과가 아니다</li>
+          <li>재료 분산, 사선 입사, 편광 의존성은 다루지 않았다</li>
+          <li>GDS에 DRC를 돌리지 않았고 제작하지 않았다</li>
+        </ul></div>
+      </div>
+      <p class="note">ASM 창 가장자리에서 스펙트럼이 약 6 % 잘려 나가며, 이것이 투과 수치의 계통 오차로 남아 있습니다.</p>
+    </section>
+
+    <section id="code">
+      <h2>코드 구성</h2>
+      <ul>
+        <li><code>library/build_library.py</code> — meent 스윕으로 라이브러리 생성</li>
+        <li><code>design/__main__.py</code> — 스펙 YAML에서 GDS·검증·뷰어 데이터까지 전체 실행</li>
+        <li><code>verify/asm.py</code> — ASM 전파와 효율·PSF 지표</li>
+        <li><code>verify/meep_nearfield.py</code>, <code>verify/compare_meep.py</code> — Meep 3D 근접장과 LPA 비교</li>
+        <li><code>verify/meep_cyl.py</code>, <code>verify/res_convergence.py</code> — cylindrical 대리 소자와 해상도 수렴</li>
+        <li><code>viewer/</code> — three.js 뷰어</li>
+      </ul>
+      <p>모든 Meep 계산은 개인 PC의 WSL에서 4프로세스로 실행했습니다. 2026년 10월 31일–11월 2일 작업입니다.</p>
+    </section>
+  </article>
+</div>
+
+<nav class="pager">
+  <a href="../index.html#metasurface"><small>← 홈</small>전체 프로젝트</a>
+  <a class="next" href="./grating-coupler.html"><small>다음 →</small>Inverse Design · 그레이팅 커플러</a>
+</nav>
+<footer>© 2026 Jinseong Bae · 그림은 모두 본인 시뮬레이션 출력입니다. 무단 복제·재배포 금지 · <a href="../LICENSE.txt">LICENSE</a></footer>
+<script src="./project.js"></script>
+</body>
+</html>

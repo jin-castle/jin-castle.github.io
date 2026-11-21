@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grating Coupler Inverse Design · Jinseong Bae</title>
+<meta name="description" content="70 nm 얕은 식각 SOI 그레이팅 커플러를 균일한 회색에서 출발한 2D Meep adjoint로 역설계하고, GDS와 FDTDX 3D로 검증한 과정.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<meta property="og:url" content="https://jin-castle.github.io/projects/grating-coupler.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Grating Coupler Inverse Design · Jinseong Bae">
+<meta property="og:description" content="70 nm 얕은 식각 SOI 그레이팅 커플러를 균일한 회색에서 출발한 2D Meep adjoint로 역설계하고, GDS와 FDTDX 3D로 검증한 과정.">
+<meta property="og:image" content="https://jin-castle.github.io/img/og-grating-coupler.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link rel="stylesheet" href="./project.css">
+<link rel="alternate" hreflang="ko" href="https://jin-castle.github.io/projects/grating-coupler.html">
+<link rel="alternate" hreflang="en" href="https://jin-castle.github.io/en/projects/grating-coupler.html">
+<link rel="alternate" hreflang="x-default" href="https://jin-castle.github.io/projects/grating-coupler.html">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="../index.html">Jinseong Bae</a>
+  <nav><a class="lang" href="../en/projects/grating-coupler.html" hreflang="en" lang="en">EN</a><a href="../index.html#inverse-design">← 홈으로</a><a class="hide-sm" href="./mock-tapeout.html">다음 프로젝트 →</a></nav>
+</header>
+
+<div class="hero">
+  <p class="idx">02 — INVERSE DESIGN · Adjoint grating coupler</p>
+  <h1>Adjoint 역설계로<br>그레이팅 커플러를 최적화하다</h1>
+  <p class="lead">광섬유 빛을 실리콘 도파로로 넣는 그레이팅 커플러를, 정답을 주지 않고 균일한 회색(밀도 ρ = 0.5)에서 출발한 adjoint 최적화로 설계했습니다. 최적화는 약 630 nm 주기와 위치에 따라 굵기가 변하는 apodization을 스스로 찾았습니다. 이 패턴을 제작용 GDS로 바꾸고 3D 시뮬레이션으로 다시 확인했습니다.</p>
+  <ul class="kpis">
+    <li><b>45.3<small>%</small></b><span>2D 결합 효율, 날카로운 경계, res 160, 1550 nm (−3.44 dB)</span></li>
+    <li><b>44.5<small>%</small></b><span>3D 추정, FDTDX 44 nm + 2D 해상도 보정 (−3.51 dB)</span></li>
+    <li><b>+3.2<small>dB</small></b><span>같은 해상도의 균일 그레이팅 대비</span></li>
+    <li><b>0.4–2.3<small>%</small></b><span>adjoint 기울기 vs 유한차분 오차</span></li>
+  </ul>
+  <p class="tags"><span>Meep adjoint</span><span>NLopt MMA</span><span>conic filter · tanh 투영</span><span>gdsfactory</span><span>FDTDX (JAX)</span></p>
+</div>
+
+<div class="wrap">
+  <nav class="toc" aria-label="목차">
+    <a href="#why">문제와 동기</a><a href="#setup">시뮬레이션 설정</a><a href="#method">방법</a>
+    <a href="#evolution">설계가 자라는 과정</a><a href="#results">결과</a><a href="#gds">GDS와 3D</a>
+    <a href="#validation">검증</a><a href="#limits">한계</a><a href="#code">코드</a>
+  </nav>
+  <article>
+    <section id="why">
+      <h2>문제와 동기</h2>
+      <p>그레이팅 커플러는 위에서 비스듬히 들어오는 광섬유 모드를 칩 안 도파로 모드로 바꿉니다. 주기와 채움률 두 변수만 조절하는 균일 그레이팅은 빔 모양이 맞지 않아 효율에 상한이 있습니다. 앞서 두 변수만 최적화한 예제에서는 약 26 %가 한계였습니다.</p>
+      <p>그래서 식각 패턴 전체를 변수로 두는 토폴로지 역설계로 넓혔습니다. 70 nm 얕은 식각 한 번이면 마스크 하나로 만들 수 있는 구조입니다. 초기값을 정답 근처에 두지 않고 <strong>균일한 회색에서 시작</strong>해, 최적화가 무엇을 찾아내는지 보려 했습니다.</p>
+    </section>
+
+    <section id="setup">
+      <h2>시뮬레이션 설정</h2>
+      <table class="spec">
+        <tr><th>솔버</th><td>Meep 2D (x–z 단면), MPI 6 프로세스</td></tr>
+        <tr><th>층 구조</th><td>Si 220 nm (n 3.45) / BOX SiO₂ 2 µm (n 1.45) / Si 기판, 위는 공기. PML 1 µm</td></tr>
+        <tr><th>설계 영역</th><td>윗면 70 nm 식각층, 길이 14 µm, 1D 밀도 701픽셀 (20 nm)</td></tr>
+        <tr><th>광원</th><td>가우시안 빔, 법선에서 10°, 빔 허리 5.2 µm, Si 표면에 초점</td></tr>
+        <tr><th>모니터</th><td>도파로 쪽 x = −2 µm에서 TE0 고유 모드 계수</td></tr>
+        <tr><th>목적함수</th><td>1530·1550·1570 nm에서 TE0 결합 효율(|α|² / 입사 파워)의 평균</td></tr>
+        <tr><th>해상도</th><td>최적화 40 px/µm, 평가 100·160 px/µm</td></tr>
+      </table>
+    </section>
+
+    <section id="method">
+      <h2>방법</h2>
+      <ol class="steps">
+        <li><b>밀도 표현</b>ρ(x) ∈ [0, 1], 0이면 식각, 1이면 실리콘. 중간값은 두 유전율 사이 값으로 계산해 미분할 수 있게 합니다.</li>
+        <li><b>필터와 투영</b>반경 100 nm conic 필터로 너무 작은 요소를 막고, tanh 투영의 β를 8 → 16 → 32 → 64로 올려 회색을 0/1로 몰아갑니다.</li>
+        <li><b>adjoint 기울기</b>한 번의 forward와 한 번의 adjoint 계산으로 701개 픽셀의 기울기를 모두 얻습니다.</li>
+        <li><b>업데이트</b>NLopt MMA로 단계별 15 / 10 / 10 / 10회, 총 45회, 54분.</li>
+        <li><b>후처리</b>100 nm보다 작은 돌기 2개를 지우고(최소 tooth 100 nm, trench 140 nm), 피크가 1550 nm에 오도록 x 방향 배율을 조정했습니다.</li>
+      </ol>
+    </section>
+
+    <section id="evolution">
+      <h2>설계가 자라는 과정</h2>
+      <p>처음 세 번의 반복에서는 효율이 거의 0입니다. 균일한 회색 슬랩은 빛을 결합하지 못하기 때문입니다. 네 번째부터 기울기를 따라 주기 구조가 나타나며 효율이 급히 오릅니다. β가 커질 때마다 잠깐 떨어졌다 회복하면서 회색이 사라집니다.</p>
+      <div class="figs">
+        <figure><a href="./img/grating-coupler/design_it13.webp"><img src="./img/grating-coupler/design_it13.webp" alt="반복 13 중간 설계" loading="lazy"></a>
+          <figcaption><b>그림 1</b>반복 13 (β 8): 회색도 0.19, 평균 효율 0.446. 위에서부터 밀도, 단면, 국소 주기, 국소 채움률.</figcaption></figure>
+        <figure><a href="./img/grating-coupler/design_it45.webp"><img src="./img/grating-coupler/design_it45.webp" alt="반복 45 최종 설계" loading="lazy"></a>
+          <figcaption><b>그림 2</b>반복 45 (β 64): 회색도 0.03, 평균 효율 0.469. 빔 아래 주기가 약 630 nm로 고르게 맞춰졌습니다.</figcaption></figure>
+      </div>
+      <p>최적화가 찾은 구조는 도파로 쪽에서 실리콘 tooth가 가늘고(100 nm) 갈수록 굵어지며(340 nm), trench는 반대로 540 → 300 nm로 좁아집니다. 빔의 가우시안 모양에 맞춰 산란 세기를 점점 키우는, 교과서적인 apodization입니다.</p>
+    </section>
+
+    <section id="results">
+      <h2>결과</h2>
+      <figure><a href="./img/grating-coupler/evaluation.webp"><img src="./img/grating-coupler/evaluation.webp" alt="최종 패턴 스펙트럼 필드" loading="lazy"></a>
+        <figcaption><b>그림 3</b>최종 식각 패턴, 균일 그레이팅 대비 결합 스펙트럼, 최적화 이력, 1550 nm |Ez| (위에서 들어온 빛이 왼쪽 도파로로 결합).</figcaption></figure>
+      <h3>해상도에 따른 효율 (날카로운 경계로 다시 계산)</h3>
+      <table class="spec">
+        <tr><th>res 25</th><td>32.0 % @ 1522.5 nm</td></tr>
+        <tr><th>res 45</th><td>36.3 % @ 1527.5 nm</td></tr>
+        <tr><th>res 100</th><td>43.5 % @ 1542.5 nm</td></tr>
+        <tr><th>res 160</th><td><strong>45.3 % @ 1550 nm</strong>, 1 dB 대역폭 37.5 nm</td></tr>
+      </table>
+      <p class="note warn">최적화 중 MaterialGrid 표현으로 잰 res 100 값은 49.2 %였습니다. 같은 해상도에서 날카로운 경계로 다시 계산하면 43.5 %라서, 49 %는 결과로 쓰지 않습니다. 그 사이에 50 nm짜리 trench 하나도 제거됐기 때문에, 차이 전부를 표현 방식 탓으로 단정하지는 않습니다.</p>
+    </section>
+
+    <section id="gds">
+      <h2>GDS와 3D 검증</h2>
+      <p>1D 패턴을 공초점 타원 모양의 focusing 그레이팅 커플러(반각 22°, 테이퍼 12 µm, 500 nm 도파로)로 바꿔 GDS를 만들었습니다. 층은 WG 1/0, SHALLOW_ETCH 2/6입니다.</p>
+      <figure><a href="./img/grating-coupler/gds.webp"><img src="./img/grating-coupler/gds.webp" alt="focusing GC GDS" loading="lazy"></a>
+        <figcaption><b>그림 4</b>최종 GDS: 220 nm Si(파랑)와 70 nm 식각(주황), 광섬유 모드 위치(빨강 점선), 빔 중심 확대.</figcaption></figure>
+      <p>3D는 FDTDX(JAX)로 GDS를 그대로 읽어 대칭 없이 전체 영역을 계산했습니다(격자 44 nm, 773 × 522 × 113, 1 ps, subpixel smoothing). 같은 44 nm 격자의 2D와 비교한 3D 손실은 약 −0.3 dB입니다.</p>
+      <figure><a href="./img/grating-coupler/fields3d.webp"><img src="./img/grating-coupler/fields3d.webp" alt="FDTDX 3D 필드와 스펙트럼" loading="lazy"></a>
+        <figcaption><b>그림 5</b>FDTDX 3D: Si 층에서 광섬유 빔이 도파로로 모이는 |Ey|, 스펙트럼(3D 44.8 % @ 1565 nm, Meep 2D 비교), x–z 단면.</figcaption></figure>
+      <figure><a href="./img/grating-coupler/align.webp"><img src="./img/grating-coupler/align.webp" alt="1550 nm 정렬과 3D 추정" loading="lazy"></a>
+        <figcaption><b>그림 6</b>피크를 1550 nm에 맞추는 배율 조정(왼쪽, 2D 11 nm)과 같은 격자의 2D·3D 비교(오른쪽, 44 nm).</figcaption></figure>
+      <p>44 nm 격자는 70 nm 식각을 1.6칸으로만 표현해서, 최종 3D 값은 3D(44 nm) 결과에 2D 11 nm 대비 44 nm 차이를 더한 <strong>추정치 44.5 % @ 1549.8 nm(−3.51 dB)</strong>로 적습니다.</p>
+    </section>
+
+    <section id="validation">
+      <h2>검증</h2>
+      <ul>
+        <li><strong>기울기 검사</strong>: res 40, β 8, ρ = 0.5에서 세 방향(기울기 부호, 무작위, 6.1 µm 위치 bump)의 방향 미분을 유한차분(h = 0.02)과 비교해 오차 1.42 / 2.32 / 0.41 %.</li>
+        <li><strong>해상도</strong>: res 160까지도 효율이 오르고 피크가 적색으로 이동해, 완전히 수렴하지 않았습니다.</li>
+        <li><strong>솔버 간</strong>: FDTDX 2D와 Meep 2D 사이에 약 2–3 %p, 10 nm 차이가 남아 있고 원인은 밝히지 못했습니다.</li>
+      </ul>
+    </section>
+
+    <section id="limits">
+      <h2>한계와 주장하지 않는 것</h2>
+      <div class="claims">
+        <div><h3>주장하는 것</h3><ul>
+          <li>균일한 회색에서 출발한 adjoint 최적화가 주기와 apodization을 스스로 찾았다</li>
+          <li>날카로운 경계 2D 45.3 %, 3D 추정 44.5 %로 균일 그레이팅보다 약 3 dB 높다</li>
+        </ul></div>
+        <div class="no"><h3>주장하지 않는 것</h3><ul>
+          <li>최적화는 2D TE에서만 했다. 3D 역설계는 하지 않았다</li>
+          <li>44.5 %는 측정값이 아니라 외삽 추정이며 3D는 한 격자 크기뿐이다</li>
+          <li>공정 오차 강건성, 반사, seed 비교는 없고, 제작하지 않았다</li>
+        </ul></div>
+      </div>
+    </section>
+
+    <section id="code">
+      <h2>코드 구성</h2>
+      <ul>
+        <li><code>gc2d/gc2d_adjoint.py</code> — 2D 최적화 (<code>-mode opt | gradcheck | plot</code>)</li>
+        <li><code>gc2d/evaluate_gc2d.py</code>, <code>clean_design.py</code>, <code>stretch_design.py</code> — 평가와 후처리</li>
+        <li><code>gc3d/make_gds.py</code> — focusing GC GDS</li>
+        <li><code>gc3d/fdtdx/gc_fdtdx.py</code>, <code>analyze_align.py</code> — 3D 검증과 1550 nm 정렬</li>
+      </ul>
+      <p>2D 최적화는 개인 PC WSL, 3D 검증은 Colab A100에서 실행했습니다. 2026년 9월 27일 – 10월 14일 작업입니다.</p>
+    </section>
+  </article>
+</div>
+
+<nav class="pager">
+  <a href="./metastudio.html"><small>← 이전</small>Metasurface · MetaStudio</a>
+  <a class="next" href="./mock-tapeout.html"><small>다음 →</small>Silicon Photonics · 모의 테이프아웃</a>
+</nav>
+<footer>© 2026 Jinseong Bae · 그림은 모두 본인 시뮬레이션 출력입니다. 무단 복제·재배포 금지 · <a href="../LICENSE.txt">LICENSE</a></footer>
+<script src="./project.js"></script>
+</body>
+</html>

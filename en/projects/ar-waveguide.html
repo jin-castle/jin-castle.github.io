@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AR Waveguide · Jinseong Bae</title>
+<meta name="description" content="An AR waveguide project: freeform in/out couplers with high-order coupling at Λ 2 µm, inverse-designed by differentiating RCWA, then simulated at system level through the fold grating, eyebox and retinal image.">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:url" content="https://jin-castle.github.io/en/projects/ar-waveguide.html">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="en_US">
+<meta property="og:title" content="AR Waveguide · Jinseong Bae">
+<meta property="og:description" content="An AR waveguide project: freeform in/out couplers with high-order coupling at Λ 2 µm, inverse-designed by differentiating RCWA, then simulated at system level through the fold grating, eyebox and retinal image.">
+<meta property="og:image" content="https://jin-castle.github.io/img/og-ar-waveguide.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link rel="stylesheet" href="../../projects/project.css">
+<link rel="alternate" hreflang="ko" href="https://jin-castle.github.io/projects/ar-waveguide.html">
+<link rel="alternate" hreflang="en" href="https://jin-castle.github.io/en/projects/ar-waveguide.html">
+<link rel="alternate" hreflang="x-default" href="https://jin-castle.github.io/projects/ar-waveguide.html">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="../index.html">Jinseong Bae</a>
+  <nav><a class="lang" href="../../projects/ar-waveguide.html" hreflang="ko" lang="ko">한국어</a><a href="../index.html#ar-waveguide">← Home</a><a class="hide-sm" href="./open-science.html">Next project →</a></nav>
+</header>
+
+<div class="hero">
+  <p class="idx">05 — AR WAVEGUIDE · End-to-end optics</p>
+  <h1>Inverse-designing AR waveguide gratings<br>and simulating the retinal image</h1>
+  <p class="lead">I computed the optics for one eye of an AR glass from start to finish. I inverse-designed freeform in/out couplers with a 2 µm period by differentiating RCWA directly, added a first-order fold grating, and then simulated the retinal image at each eye position, including order ghosts, over a commercial-spec eyebox (12 × 10 mm, eye relief 18 mm). Green, 540 nm, monochromatic.</p>
+  <ul class="kpis">
+    <li><b>0.75</b><span>In-coupler +5th-order coupling efficiency, mean over 25 angles (purity 0.994)</span></li>
+    <li><b>0.049 → 0.383<small>%</small></b><span>Mean screen brightness reaching the eye, vs. the earlier first-order design</span></li>
+    <li><b>0.49 → 0.35</b><span>Screen brightness CV, angle sampling 5 → 51</span></li>
+    <li><b>0.006</b><span>Ghost / main image brightness ratio</span></li>
+  </ul>
+  <p class="tags"><span>fmmax RCWA (JAX)</span><span>Adam · conic filter · β continuation</span><span>beam tracing</span><span>Meep 2D cross-check</span></p>
+</div>
+
+<div class="wrap">
+  <nav class="toc" aria-label="Contents">
+    <a href="#why">Problem and motivation</a><a href="#setup">Simulation setup</a><a href="#method">Method</a>
+    <a href="#unitcell">Unit-cell results</a><a href="#stripes">Vertical stripes</a><a href="#system">System results</a>
+    <a href="#validation">Validation</a><a href="#limits">Limitations</a><a href="#code">Code</a>
+  </nav>
+  <article>
+    <section id="why">
+      <h2>Problem and motivation</h2>
+      <p>A diffractive-waveguide AR glass couples light from a microdisplay into a glass plate through an in-coupler grating, carries it by total internal reflection, and extracts it in front of the eye through an out-coupler. Even when the unit-cell efficiency is high, the image the eye sees degrades if the efficiency is uneven across field angles or if unwanted orders leak out as ghosts.</p>
+      <p>The starting point is a paper published by the same lab: S. Lee, B. Lee, H. Chung, <a href="https://doi.org/10.1515/nanoph-2025-0501" target="_blank" rel="noopener"><em>Nanophotonics</em> 14(27), 5555 (2025)</a>. It showed unit-cell optimization of a freeform coupler that couples into a high order (+5th) at a 2 µm period, and left system-level questions such as the eyebox and the retinal image as future work. Here I first reproduced the original conditions and then carried the work through to that system level myself.</p>
+    </section>
+
+    <section id="setup">
+      <h2>Simulation setup</h2>
+      <h3>Unit cell (RCWA)</h3>
+      <table class="spec">
+        <tr><th>Solver</th><td>fmmax (JAX), FFT formulation, 1D expansion M = 20 (41 orders), float64</td></tr>
+        <tr><th>Structure</th><td>Period 2.0 µm, height 0.8 µm, x–z freeform of 40 layers × 100 pixels (20 nm)</td></tr>
+        <tr><th>Materials</th><td>TiO₂ n 2.4 (assumed) / glass waveguide n 2.0, thickness 0.5 mm</td></tr>
+        <tr><th>Wavelength · polarization</th><td>540 nm monochromatic, average of two polarizations (unpolarized)</td></tr>
+        <tr><th>Field of view</th><td>Screen 30° × 17°. In-coupler 5 × 5 = 25 angles, out-coupler 17 × 3 = 51 angles</td></tr>
+        <tr><th>Objective</th><td>IC: drive +5th-order transmission to 1 and the +5th-order fraction among guided orders to 1.<br>OC: drive outcoupled T₅ to the target α_T, zeroth-order reflection R₀ to 1 − α_T, and the see-through zeroth-order fraction to 1</td></tr>
+      </table>
+      <h3>System (beam tracing)</h3>
+      <table class="spec">
+        <tr><th>Layout</th><td>IC → fold (7 × 16 mm) → OC (22 × 16 mm, 5 zones), eyebox 12 × 10 mm, eye relief 18 mm, pupil Ø 3 mm</td></tr>
+        <tr><th>Model</th><td>Guided paths are traced by dynamic programming on grid points. IC orders 4–7 and all outcoupled orders are counted, so ghosts are included. Incoherent, unpolarized</td></tr>
+        <tr><th>Retinal image</th><td>Source image × per-angle transfer efficiency (PSF and aberrations not included)</td></tr>
+      </table>
+      <figure><a href="../../projects/img/ar-waveguide/layout.webp"><img src="../../projects/img/ar-waveguide/layout.webp" alt="AR waveguide system layout" loading="lazy"></a>
+        <figcaption><b>Figure 1</b>System layout: in-coupler, fold (duty 0.3 → 0.6), out-coupler in 5 zones (α_T 0.05–0.40), eyebox grid points. Below: the unit-cell cross-section for each zone and the computation settings.</figcaption></figure>
+    </section>
+
+    <section id="method">
+      <h2>Method</h2>
+      <ol class="steps">
+        <li><b>Reproduce the original conditions</b>I matched the period, orders, objective and filter to the paper, and recomputed the k-space conditions in its Table 1; all 33 agree.</li>
+        <li><b>In-coupler inverse design</b>Adam (learning rate 0.03), conic filter with a 50 nm minimum feature size, tanh projection with β continued from 1 → 64. 450 iterations, about 2.4 hours (CPU).</li>
+        <li><b>5 out-couplers</b>450 iterations for each extraction ratio α_T = 0.05/0.10/0.15/0.25/0.40. I then increased the angle set to 51 and re-optimized for 150 iterations.</li>
+        <li><b>Layout search</b>I built a per-angle efficiency lookup table (LUT), then searched the 5-zone OC layout and the fold depth and duty alternately, twice.</li>
+        <li><b>System simulation</b>I computed the screen brightness at each eye position, eyebox uniformity, ghosts and retinal images.</li>
+      </ol>
+    </section>
+
+    <section id="unitcell">
+      <h2>Unit-cell results</h2>
+      <figure><a href="../../projects/img/ar-waveguide/designs.webp"><img src="../../projects/img/ar-waveguide/designs.webp" alt="Freeform unit cells and optimization history" loading="lazy"></a>
+        <figcaption><b>Figure 2</b>Top: final cross-sections of the in-coupler and the 5 out-couplers. Middle: optimization history and per-angle efficiency and purity maps. Bottom: table of results vs. target for each α_T.</figcaption></figure>
+      <table class="spec">
+        <tr><th>in-coupler</th><td>Mean +5th-order T <strong>0.753</strong> (min 0.674, max 0.815), +5th-order fraction among guided orders 0.994. Original paper: TE about 60 %</td></tr>
+        <tr><th>out-coupler</th><td>Targets 0.05/0.10/0.15/0.25/0.40 → 0.047/0.099/0.150/0.247/0.397, leakage into other orders about 0.1 %</td></tr>
+        <tr><th>See-through zeroth order</th><td>1.000 by the paper's metric (zeroth-order fraction); absolute transmission T₀ is 0.50–0.71</td></tr>
+      </table>
+      <figure><a href="../../projects/img/ar-waveguide/kspace.webp"><img src="../../projects/img/ar-waveguide/kspace.webp" alt="k-space analysis" loading="lazy"></a>
+        <figcaption><b>Figure 3</b>k-space analysis: for each wavelength, the orders trapped inside the waveguide, the window that accepts the full field of view, and the ghost positions produced by other orders.</figcaption></figure>
+    </section>
+
+    <section id="stripes">
+      <h2>The vertical-stripe problem — Rayleigh anomalies hidden between angles</h2>
+      <p>At first I optimized the out-coupler at only 5 horizontal angles. The unit-cell metrics were good, but vertical stripes appeared in the retinal image. With a 2 µm period the order spacing is a dense 0.27, so between the optimized angles (±4.6°, ±6.3°, ±9.2°, ±11°) Rayleigh anomalies occur, where new orders open and close. At those angles the zeroth-order reflection R₀ dropped from 0.95 to 0.81, which darkened one column of the screen.</p>
+      <figure><a href="../../projects/img/ar-waveguide/anomaly.webp"><img src="../../projects/img/ar-waveguide/anomaly.webp" alt="Rayleigh anomalies and denser angle sampling" loading="lazy"></a>
+        <figcaption><b>Figure 4</b>Top: R₀ and T₅ vs. angle. Vertical lines mark anomalies; triangles mark optimized angles. Bottom: screen brightness maps for the 5-angle (left) and 17 × 3-angle (right) designs.</figcaption></figure>
+      <p>Re-optimizing with 17 horizontal × 3 vertical = 51 angles, so that the neighborhood of the anomalies is covered, improved the screen CV from 0.49 to 0.35 and the eyebox min/max from 0.48 to 0.50. The problem is not fully removed: two corner points (horizontal +11°, vertical ±8.6°) remain at R₀ 0.76, and the ±5° columns remain about 30 % darker.</p>
+      <div class="figs">
+        <figure><a href="../../projects/img/ar-waveguide/retina_sparse.webp"><img src="../../projects/img/ar-waveguide/retina_sparse.webp" alt="Retinal images, 5-angle design" loading="lazy"></a>
+          <figcaption><b>Figure 5</b>5-angle design: retinal image at each eye position (vertical stripes visible).</figcaption></figure>
+        <figure><a href="../../projects/img/ar-waveguide/retina.webp"><img src="../../projects/img/ar-waveguide/retina.webp" alt="Retinal images, final design" loading="lazy"></a>
+          <figcaption><b>Figure 6</b>Final design: same eye positions. Top row: the earlier first-order (Λ 347 nm) design.</figcaption></figure>
+      </div>
+    </section>
+
+    <section id="system">
+      <h2>System results</h2>
+      <figure><a href="../../projects/img/ar-waveguide/maps.webp"><img src="../../projects/img/ar-waveguide/maps.webp" alt="Screen and eyebox uniformity" loading="lazy"></a>
+        <figcaption><b>Figure 7</b>Screen brightness maps, eyebox uniformity and ghost table for the earlier first-order design (top) and the final design (bottom).</figcaption></figure>
+      <table class="spec">
+        <tr><th>Metric (center eye)</th><td>Earlier Λ 347 nm first-order → 5-angle OC → <strong>51-angle OC</strong></td></tr>
+        <tr><th>Mean screen brightness</th><td>0.049 % → 0.325 % → <strong>0.383 %</strong></td></tr>
+        <tr><th>Screen CV</th><td>0.62 → 0.49 → <strong>0.35</strong></td></tr>
+        <tr><th>eyebox min/max</th><td>0.13 → 0.48 → <strong>0.50</strong></td></tr>
+        <tr><th>Ghost / main image</th><td>— → 0.018 → <strong>0.006</strong></td></tr>
+      </table>
+      <p class="note">The earlier first-order design values are a 3-wavelength average, while this design is 540 nm monochromatic, so direct comparison needs care. Using α_T 0.15 in every zone gives brightness 0.225 %, CV 0.74 and min/max 0.09, so most of the uniformity comes from the per-zone extraction-ratio layout.</p>
+    </section>
+
+    <section id="validation">
+      <h2>Validation</h2>
+      <ul>
+        <li><strong>Fourier order convergence</strong>: maximum difference of M 30 and 40 relative to M 20 is IC 0.0014, OC 0.003.</li>
+        <li><strong>RCWA vs Meep 2D</strong>: in-plane incidence, TE and TM, Bloch-periodic, resolution 100 px/µm. IC at normal incidence: TE 0.892 vs 0.901 (0.897 at resolution 200), TM 0.727 vs 0.729. The largest difference is about 0.03, for TE at the edge angle of OC α_T 0.40. Energy sum 0.987–1.008.</li>
+      </ul>
+      <p class="note">The Meep cross-check covers only a few representative cases, and resolution 200 was run for one case only.</p>
+    </section>
+
+    <section id="limits">
+      <h2>Limitations and non-claims</h2>
+      <div class="claims">
+        <div><h3>Claims</h3><ul>
+          <li>A Λ 2 µm high-order coupling coupler was redesigned by differentiating RCWA and connected through to the system image</li>
+          <li>The cause of the vertical stripes was identified (sparse angle sampling lets anomalies produce stripes in the image), and the stripes were substantially reduced</li>
+        </ul></div>
+        <div class="no"><h3>Non-claims</h3><ul>
+          <li>RGB color — only green, monochromatic, was computed</li>
+          <li>PSF·MTF, interference, second-order ghosts inside the waveguide — not in the model</li>
+          <li>TiO₂ n 2.4 and height 0.8 µm are assumed values; no tolerance analysis, fabrication or measurement was done</li>
+        </ul></div>
+      </div>
+    </section>
+
+    <section id="code">
+      <h2>Code layout</h2>
+      <ul>
+        <li><code>rcwa/lee_cell.py</code>, <code>rcwa/lee_opt.py</code> — unit-cell model and inverse design (<code>--part ic|oc</code>, <code>--dense</code>)</li>
+        <li><code>rcwa/lut_lee.py</code> — per-angle efficiency table</li>
+        <li><code>rcwa/system_sim_lee.py</code> — fold and OC layout search, full system simulation</li>
+        <li><code>meep_t1/lee_xcheck.py</code> — Meep 2D cross-check</li>
+        <li><code>figs/make_lee_*.py</code> — figures</li>
+      </ul>
+      <p>All computations ran on the WSL CPU of a personal PC. Work done on 27 October 2026.</p>
+    </section>
+  </article>
+</div>
+
+<nav class="pager">
+  <a href="./ai-physics.html"><small>← Previous</small>AI × Physics</a>
+  <a class="next" href="./open-science.html"><small>Next →</small>Open Science · Meep walkthroughs</a>
+</nav>
+<footer>© 2026 Jinseong Bae · All figures are my own simulation outputs. The original design conditions follow Lee, Lee, Chung (2025). No copying or redistribution without permission · <a href="../../LICENSE.txt">LICENSE</a></footer>
+<script src="../../projects/project.js"></script>
+</body>
+</html>

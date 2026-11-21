@@ -1,0 +1,32 @@
+Copyright (c) 2026 Jinseong Bae. All rights reserved.
+
+This license covers the website "Jinseong Bae - Computational Nanophotonics"
+(this folder and its deployed copy).
+
+1. What is reserved
+   Unless otherwise noted below, all original content of this site is the
+   work of Jinseong Bae and all rights are reserved. This includes:
+     - text, project descriptions and numerical results,
+     - simulation figures, animations, images and the CV (cv.pdf),
+     - the page design and the source code of this site
+       (HTML, CSS, JavaScript and shaders).
+   No part may be copied, republished, redistributed or used to build a
+   derivative site without prior written permission.
+
+   Permission is not needed to link to the site, or to quote short excerpts
+   with attribution for review, discussion or citation.
+
+2. Third-party material (not covered by the reservation above)
+   - three.js, MIT License, loaded from cdn.jsdelivr.net.
+   - Pretendard typeface, SIL Open Font License 1.1, loaded from cdn.jsdelivr.net.
+   - Measured data plotted on the Silicon Photonics (mock tape-out) page are
+     public SiEPIC openEBL 2025-05 data (github.com/SiEPIC/openEBL-2025-05);
+     the plots are original, the data remain under their own terms.
+   - The AR waveguide project follows the design conditions of
+     S. Lee, B. Lee, H. Chung, Nanophotonics (2025),
+     doi:10.1515/nanoph-2025-0501; the simulations and figures are original.
+   - Code published in separate repositories (for example meep-examples)
+     is governed by the license in each repository.
+
+3. Contact
+   For permission requests: bgs4652@gmail.com

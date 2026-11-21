@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mock Tape-out · Jinseong Bae</title>
+<meta name="description" content="220 nm SOI 링 WDM 뱅크로 모드 해석부터 레이아웃·DRC·웨이퍼 몬테카를로 수율·링크 예산까지 이은 모의 테이프아웃과, 공개 openEBL 실측 데이터로 한 가정 점검.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<meta property="og:url" content="https://jin-castle.github.io/projects/mock-tapeout.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Mock Tape-out · Jinseong Bae">
+<meta property="og:description" content="220 nm SOI 링 WDM 뱅크로 모드 해석부터 레이아웃·DRC·웨이퍼 몬테카를로 수율·링크 예산까지 이은 모의 테이프아웃과, 공개 openEBL 실측 데이터로 한 가정 점검.">
+<meta property="og:image" content="https://jin-castle.github.io/img/og-mock-tapeout.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link rel="stylesheet" href="./project.css">
+<link rel="alternate" hreflang="ko" href="https://jin-castle.github.io/projects/mock-tapeout.html">
+<link rel="alternate" hreflang="en" href="https://jin-castle.github.io/en/projects/mock-tapeout.html">
+<link rel="alternate" hreflang="x-default" href="https://jin-castle.github.io/projects/mock-tapeout.html">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="../index.html">Jinseong Bae</a>
+  <nav><a class="lang" href="../en/projects/mock-tapeout.html" hreflang="en" lang="en">EN</a><a href="../index.html#silicon-photonics">← 홈으로</a><a class="hide-sm" href="./ai-physics.html">다음 프로젝트 →</a></nav>
+</header>
+
+<div class="hero">
+  <p class="idx">03 — SILICON PHOTONICS · Mock tape-out</p>
+  <h1>링 WDM 칩의<br>공정 편차와 수율을 분석하다</h1>
+  <p class="lead">회로 응답을 "그린 치수"가 아니라 실제로 가공된 폭·두께·온도의 함수로 봤습니다. 220 nm SOI 링 4채널 WDM 뱅크를 대상으로 모드 해석 → 회로 시뮬레이션 → 타일 레이아웃과 DRC → 웨이퍼 맵 몬테카를로 수율 → 광 링크 예산까지 이었습니다. 마지막으로 공개된 openEBL 실측 데이터로 제 가정을 점검했습니다.</p>
+  <ul class="kpis">
+    <li><b>4.172</b><span>openEBL 실측 MZI 군굴절률 n_g (±0.002)</span></li>
+    <li><b>92 → 100<small>%</small></b><span>링 뱅크 수율, σ_t 1 nm: 고정 배정 → 순환 배정 + FSR 4채널</span></li>
+    <li><b>3.17<small>pJ/bit</small></b><span>링크 에너지, 4λ × 50 Gb/s, 손실 13.9 dB</span></li>
+    <li><b>2.5 × 10⁵</b><span>실측 링 고유 Q, 손실 2.98 dB/cm</span></li>
+  </ul>
+  <p class="tags"><span>MPB</span><span>gdsfactory · ubcpdk</span><span>SAX</span><span>klayout.db DRC</span><span>Monte Carlo</span></p>
+</div>
+
+<div class="wrap">
+  <nav class="toc" aria-label="목차">
+    <a href="#why">문제와 동기</a><a href="#setup">모델 설정</a><a href="#method">파이프라인</a>
+    <a href="#yield">수율</a><a href="#link">링크 예산</a><a href="#measured">실측 점검</a><a href="#limits">한계</a><a href="#code">코드</a>
+  </nav>
+  <article>
+    <section id="why">
+      <h2>문제와 동기</h2>
+      <p>링 공진기의 공진 파장은 도파로 폭과 실리콘 두께가 1 nm만 달라도 nm 단위로 움직입니다. 그래서 "설계대로 그렸는가"보다 <strong>웨이퍼 위 몇 %의 다이가 동작하고, 히터로 맞추는 데 전력이 얼마나 드는가</strong>가 공정 관점의 질문입니다. 실리콘 포토닉스 공정 직무를 목표로, 이 질문을 설계 첫 단계부터 끝까지 한 번 따라가 봤습니다.</p>
+    </section>
+
+    <section id="setup">
+      <h2>모델 설정</h2>
+      <table class="spec">
+        <tr><th>도파로</th><td>500 × 220 nm Si strip, SiO₂ 상하 클래딩, TE0, λ 1550 nm</td></tr>
+        <tr><th>굴절률</th><td>Sellmeier: Si 3.4777, SiO₂ 1.4440 (1550 nm). 열광학 계수 1.86e-4 / 1.0e-5 K⁻¹</td></tr>
+        <tr><th>모드 해석</th><td>MPB, 3 × 3 µm 창, 64·96 px/µm. 폭 480–520 nm, 두께 210–230 nm, 파장 1530–1570 nm, ΔT 10 K 스윕</td></tr>
+        <tr><th>회로</th><td>SAX: 직선·Euler 굽힘·링 결합기(Meep 2D 결과)·3 dB 결합기·탭. 도파로 손실 2.0 dB/cm 가정</td></tr>
+        <tr><th>공정 편차</th><td>두께 σ_t 0.5–5 nm, 폭 σ_w 2 nm. 웨이퍼 간 30 %, 방사형 30 %, 상관 성분(상관 길이 30 mm) 30 %, 다이별 무작위 10 %. 다이 안 링 간 차이 0.3 / 0.1 nm</td></tr>
+        <tr><th>표본</th><td>200 mm 웨이퍼 × 400장, 10 mm 다이 276개씩 ≈ 11만 다이</td></tr>
+        <tr><th>히터</th><td>4 mW/nm, 링당 상한 30 mW, 적색 편이만 가능, 채널 간격 0.90 nm</td></tr>
+      </table>
+      <figure><a href="./img/mock-tapeout/mode.webp"><img src="./img/mock-tapeout/mode.webp" alt="모드 해석과 민감도" loading="lazy"></a>
+        <figcaption><b>그림 1</b>폭·두께별 n_eff, 파장 분산, 링 공진 민감도. n_eff 2.447, n_g 4.196. 공진 이동은 폭 0.59, 두께 1.37 nm/nm, 온도 74 pm/K.</figcaption></figure>
+    </section>
+
+    <section id="method">
+      <h2>파이프라인</h2>
+      <ol class="steps">
+        <li><b>민감도</b>MPB로 n_eff·n_g와 폭·두께·온도 민감도를 구합니다. 두께가 폭보다 2.3배 민감합니다.</li>
+        <li><b>회로</b>gdsfactory 레이아웃에서 넷리스트를 뽑아 SAX로 MZI와 4채널 링 add-drop 뱅크를 풉니다. drop 손실 0.2–0.3 dB, 누화 −18 / −28 dB.</li>
+        <li><b>타일과 DRC</b>ubcpdk로 605 × 410 µm 타일을 만들고 공정 모니터(cutback 3종, 폭 쌍 MZI, 기준 링)를 넣습니다. DRC는 최소 폭·간격 60 nm, 플로어플랜 경계, 측정 라벨, GC 127 µm 피치를 검사합니다.</li>
+        <li><b>웨이퍼 몬테카를로</b>다이마다 (dw, dt)를 뽑아 링 공진을 계산하고, 히터로 채널에 맞출 수 있는지와 전력을 셉니다.</li>
+        <li><b>링크 예산</b>레이저부터 수신기까지 손실을 쌓고 pJ/bit을 나눕니다.</li>
+      </ol>
+      <div class="figs">
+        <figure><a href="./img/mock-tapeout/filter_bank.webp"><img src="./img/mock-tapeout/filter_bank.webp" alt="링 필터 뱅크 스펙트럼" loading="lazy"></a>
+          <figcaption><b>그림 2</b>4채널 링 뱅크 drop 스펙트럼(위)과 공정 편차에 따른 이동(아래).</figcaption></figure>
+        <figure><a href="./img/mock-tapeout/tile1.webp"><img src="./img/mock-tapeout/tile1.webp" alt="타일 레이아웃" loading="lazy"></a>
+          <figcaption><b>그림 3</b>타일 1 레이아웃: cutback, MZI 쌍, 링, 그레이팅 커플러 배열.</figcaption></figure>
+      </div>
+    </section>
+
+    <section id="yield">
+      <h2>수율 — 채널 배정이 바꾸는 것</h2>
+      <p>두께 편차 σ_t 1 / 2 / 3 nm에서 링 i를 채널 i에 고정하면(설계 A) 수율이 92.4 / 74.8 / 59.9 %로 떨어집니다. 히터가 적색으로만 움직일 수 있어서, 너무 길게 밀린 링은 30 mW 안에 자기 채널에 닿지 못하기 때문입니다.</p>
+      <p>링이 어느 채널을 맡을지 순환해서 바꾸는 배정만으로는(설계 B) 수율이 같았습니다. <strong>FSR을 채널 간격의 4배로 맞추고 순환 배정을 함께 쓰자(설계 C) 수율이 100 %</strong>가 됐습니다. 어떤 링이든 한 FSR 안에서 다음 채널을 잡을 수 있게 되기 때문입니다. 이때 링당 평균 히터 전력은 8.1–8.2 mW, 95 백분위 14.7 mW입니다.</p>
+      <figure><a href="./img/mock-tapeout/wafer_mc.webp"><img src="./img/mock-tapeout/wafer_mc.webp" alt="웨이퍼 맵 몬테카를로" loading="lazy"></a>
+        <figcaption><b>그림 4</b>웨이퍼 맵(두께 편차, 다이별 히터 전력), σ_t에 따른 수율, 평균·95 백분위 전력, 링 bias 스캔.</figcaption></figure>
+      <p class="note">92 %는 첫 실행(문헌 기반 민감도) 값이고, MPB 민감도로 다시 돌리면 94.1 %입니다. 분포의 비율과 σ 값은 가정입니다.</p>
+    </section>
+
+    <section id="link">
+      <h2>링크 예산</h2>
+      <p>4파장 × 50 Gb/s NRZ, 링 변조기(소광비 5 dB, 삽입 손실 4 dB), 수신 감도 −9 dBm OMA, 마진 3 dB, 레이저 효율 12 %를 가정했습니다. 총 손실 13.9 dB를 메우려면 파장당 레이저 7.9 dBm(6.2 mW)이 필요하고, 에너지는 3.17 pJ/bit(설계 A), 그중 히터가 0.59 pJ/bit(19 %)입니다. 설계 C는 2.90 pJ/bit입니다.</p>
+      <figure><a href="./img/mock-tapeout/link.webp"><img src="./img/mock-tapeout/link.webp" alt="링크 예산" loading="lazy"></a>
+        <figcaption><b>그림 5</b>광 전력 계단(왼쪽), 양품 다이의 pJ/bit 구성(가운데), 편차에 따른 양품당 비용(오른쪽). 편차는 pJ/bit보다 수율로 드러납니다.</figcaption></figure>
+    </section>
+
+    <section id="measured">
+      <h2>실측 점검 — openEBL 공개 데이터</h2>
+      <p>직접 칩을 만들지는 않았지만, SiEPIC openEBL 2025-05 런에서 공개된 측정 데이터(L. Chrostowski 외, MZI 2종과 R = 10 µm 링 gap 17종, 5 pm 간격)를 받아 제 모델과 맞춰 봤습니다. 소자마다 자기 포락선으로 정규화하고, 분산은 모델 값으로 고정했으며, 갈라진 공진(doublet)은 2-모드로 피팅했습니다.</p>
+      <figure><a href="./img/mock-tapeout/openebl.webp"><img src="./img/mock-tapeout/openebl.webp" alt="openEBL 실측 피팅" loading="lazy"></a>
+        <figcaption><b>그림 6</b>MZI 골 피팅으로 n_g 추출, 링 doublet 피팅, gap별 결합 계수 κ²와 손실, 가정과 실측 비교 표.</figcaption></figure>
+      <table class="spec">
+        <tr><th>MZI n_g</th><td><strong>4.172 ± 0.002</strong> (ΔL 251 µm, 골 25개). 방법을 바꾸면 ±0.01. 모드 솔버 값 4.175</td></tr>
+        <tr><th>링 Q_i</th><td>247,785 (범위 170k–270k), 손실 2.98 dB/cm</td></tr>
+        <tr><th>결합</th><td>gap 200 nm에서 κ² 실측 0.009 — 가정 0.049는 <strong>약 5배 과대</strong>. κ² 감쇠 길이 104 nm, 임계 결합 gap 약 239 nm</td></tr>
+        <tr><th>손실</th><td>가정(Q_i 18.4만, 4 dB/cm)은 실측보다 오히려 비관적</td></tr>
+        <tr><th>Y-branch</th><td>분배비 0.54 : 0.46</td></tr>
+      </table>
+      <p>그 전에 정답을 아는 가상 칩으로 추출 절차를 채점했습니다. n_g 4.1857 vs 정답 4.1856, (dw, dt) = (−7.00, +3.00) nm 복원, Q_i 184,800 vs 184,400.</p>
+      <figure><a href="./img/mock-tapeout/pair.webp"><img src="./img/mock-tapeout/pair.webp" alt="MZI 쌍으로 폭 두께 분리" loading="lazy"></a>
+        <figcaption><b>그림 7</b>가상 칩: 폭이 다른 MZI 쌍의 골 위치로 (dw, dt)를 분리하는 절차.</figcaption></figure>
+    </section>
+
+    <section id="limits">
+      <h2>한계와 주장하지 않는 것</h2>
+      <div class="claims">
+        <div><h3>주장하는 것</h3><ul>
+          <li>모드 해석부터 수율·링크 에너지까지 한 흐름으로 계산했다</li>
+          <li>공개 실측으로 결합 가정이 약 5배 과대였음을 확인하고 고쳤다</li>
+        </ul></div>
+        <div class="no"><h3>주장하지 않는 것</h3><ul>
+          <li>칩을 제작·측정하지 않았다 — 실측은 다른 사람의 칩이다</li>
+          <li>실측으로 (dw, dt)를 nm 단위로 말할 수 없다 (방법 오차 ±0.01 n_g)</li>
+          <li>SAX 링은 2D Meep 기반이라 FSR·민감도가 과대, 열 누화·PAM4·변조기 편차는 빠짐</li>
+          <li>타일 2는 DRC 간격 위반이 남아 있고, openEBL에 제출하지 않았다</li>
+        </ul></div>
+      </div>
+    </section>
+
+    <section id="code">
+      <h2>코드 구성</h2>
+      <ul>
+        <li><code>mode/mpb_strip.py</code>, <code>mode/analyze.py</code> — 모드 해석과 민감도</li>
+        <li><code>run_01_mzi.py</code>, <code>run_02_filter_bank.py</code> — SAX 회로</li>
+        <li><code>tapeout/die.py</code>, <code>tapeout/drc.py</code> — 타일 레이아웃과 DRC</li>
+        <li><code>mc/wafer_mc.py</code> — 웨이퍼 몬테카를로 (<code>--validate</code>로 SAX 대조, 최대 오차 0.002 nm)</li>
+        <li><code>link/link_budget.py</code> — 링크 예산</li>
+        <li><code>basic/s1–s7_*.py</code> — 가상 칩 채점과 openEBL 실측 분석</li>
+      </ul>
+      <p>2026년 9월 19–20일 작업입니다. 실측 데이터 출처: <a href="https://github.com/SiEPIC/openEBL-2025-05" target="_blank" rel="noopener">SiEPIC/openEBL-2025-05</a>.</p>
+    </section>
+  </article>
+</div>
+
+<nav class="pager">
+  <a href="./grating-coupler.html"><small>← 이전</small>Inverse Design · 그레이팅 커플러</a>
+  <a class="next" href="./ai-physics.html"><small>다음 →</small>AI × Physics</a>
+</nav>
+<footer>© 2026 Jinseong Bae · 그림은 모두 본인 계산 출력입니다. 실측 데이터는 SiEPIC openEBL 공개 데이터입니다. 무단 복제·재배포 금지 · <a href="../LICENSE.txt">LICENSE</a></footer>
+<script src="./project.js"></script>
+</body>
+</html>

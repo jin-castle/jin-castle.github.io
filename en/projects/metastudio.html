@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MetaStudio · Jinseong Bae</title>
+<meta name="description" content="An automated metasurface design tool that goes from a one-line lens spec to metalens GDS, ASM validation and a 3D viewer, plus a check of the LPA model against Meep 3D at high NA.">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:url" content="https://jin-castle.github.io/en/projects/metastudio.html">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="en_US">
+<meta property="og:title" content="MetaStudio · Jinseong Bae">
+<meta property="og:description" content="An automated metasurface design tool that goes from a one-line lens spec to metalens GDS, ASM validation and a 3D viewer, plus a check of the LPA model against Meep 3D at high NA.">
+<meta property="og:image" content="https://jin-castle.github.io/img/og-metastudio.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link rel="stylesheet" href="../../projects/project.css">
+<link rel="alternate" hreflang="ko" href="https://jin-castle.github.io/projects/metastudio.html">
+<link rel="alternate" hreflang="en" href="https://jin-castle.github.io/en/projects/metastudio.html">
+<link rel="alternate" hreflang="x-default" href="https://jin-castle.github.io/projects/metastudio.html">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="../index.html">Jinseong Bae</a>
+  <nav><a class="lang" href="../../projects/metastudio.html" hreflang="ko" lang="ko">한국어</a><a href="../index.html#metasurface">← Home</a><a class="hide-sm" href="./grating-coupler.html">Next project →</a></nav>
+</header>
+
+<div class="hero">
+  <p class="idx">01 — METASURFACE · MetaStudio</p>
+  <h1>Automating metalens design<br>in a single pipeline</h1>
+  <p class="lead">An automated metalens design tool: given a lens spec (YAML), one command (about 14 seconds) runs unit-cell library lookup → pillar placement → GDS → focusing validation → data for a 3D viewer in the browser. Separately, I used Meep 3D to check how far the local periodic approximation (LPA) that the tool relies on departs from full-wave results as NA increases.</p>
+  <ul class="kpis">
+    <li><b>78.4<small>%</small></b><span>Focusing efficiency, Ø 50 µm · f 100 µm (LPA + ASM model)</span></li>
+    <li><b>31,064</b><span>TiO₂ pillars, λ 532 nm</span></li>
+    <li><b>0.067<small>rad</small></b><span>RMS phase error vs target phase</span></li>
+    <li><b>−3 ~ +5<small>pp</small></b><span>LPA efficiency difference vs Meep 3D (D 8 µm, NA 0.3–0.85)</span></li>
+  </ul>
+  <p class="tags"><span>meent RCWA</span><span>Meep 3D · cylindrical</span><span>angular spectrum</span><span>gdsfactory</span><span>three.js</span></p>
+</div>
+
+<div class="wrap">
+  <nav class="toc" aria-label="Contents">
+    <a href="#why">Problem and motivation</a><a href="#setup">Simulation setup</a><a href="#method">Pipeline</a>
+    <a href="#results">Results</a><a href="#validation">Full-wave validation</a><a href="#limits">Limits</a><a href="#code">Code</a>
+  </nav>
+  <article>
+    <section id="why">
+      <h2>Problem and motivation</h2>
+      <p>In metalens design, unit-cell simulation, phase mapping, propagation checks and layout usually live in separate scripts. I could not find an open tool that connects everything in one pass, from the spec to fabrication files, validation results and a 3D view, so I put one together myself.</p>
+      <p>The second question is the tool's own assumption. LPA treats each pillar as if it sat in an infinite periodic array and borrows that phase. It tends to break down at the edge of a high-NA lens, where the phase changes quickly. Without measuring with full-wave simulation <strong>how far it can be trusted</strong>, I cannot claim an efficiency number.</p>
+    </section>
+
+    <section id="setup">
+      <h2>Simulation setup</h2>
+      <h3>Unit-cell library (RCWA)</h3>
+      <table class="spec">
+        <tr><th>Solver</th><td>meent (RCWA), Fourier order fto 7, raster 256²</td></tr>
+        <tr><th>Structure</th><td>Circular TiO₂ pillars on a SiO₂ substrate, height 600 nm, square lattice pitch 250 nm</td></tr>
+        <tr><th>Sweep</th><td>Diameter 50–220 nm, 35 values at 5 nm steps</td></tr>
+        <tr><th>Materials</th><td>TiO₂ n 2.40 (no dispersion), SiO₂ n 1.4607</td></tr>
+        <tr><th>Incidence</th><td>λ 532 nm, TE, normal incidence</td></tr>
+      </table>
+      <h3>Lens validation (ASM)</h3>
+      <table class="spec">
+        <tr><th>Propagation</th><td>Angular spectrum method (ASM), non-paraxial propagator, evanescent waves excluded, scalar</td></tr>
+        <tr><th>Grid</th><td>dx 125 nm (1/2 of the pillar pitch), 1024², 2× padding</td></tr>
+        <tr><th>Near-field model</th><td>Band-limited LPA by default, piecewise LPA selectable</td></tr>
+        <tr><th>Efficiency definition</th><td>Power inside the first zero of the azimuthally averaged |E|² in the z = f plane ÷ power incident on the lens aperture</td></tr>
+      </table>
+      <h3>Full-wave comparison (Meep 3D)</h3>
+      <table class="spec">
+        <tr><th>Targets</th><td>D 8 µm lenses with 740 pillars, NA 0.3 / 0.5 / 0.7 / 0.85</td></tr>
+        <tr><th>Cell</th><td>9 × 9 × 3 µm, resolution 40 px/µm, periodic lateral boundaries, PML 0.5 µm along z</td></tr>
+        <tr><th>Source · monitor</th><td>Ex Gaussian pulse inside the substrate, Ex·Ey·Ez DFT on a plane 0.5 µm above the pillars, normalized by a reference run without pillars</td></tr>
+        <tr><th>Far field</th><td>Near field propagated to z = f by component-wise ASM</td></tr>
+      </table>
+    </section>
+
+    <section id="method">
+      <h2>Pipeline</h2>
+      <ol class="steps">
+        <li><b>Library</b>The 35 diameters are solved with RCWA and tabulated as phase and transmission (288 seconds). Phase range 2.12π, mean |t|² 0.965.</li>
+        <li><b>Phase mapping</b>With a hyperbolic phase as the target, the diameter nearest in circular phase distance is chosen. 48 global phase constants are searched and the one with the smallest error is used. Cells with |t| &lt; 0.5 are excluded.</li>
+        <li><b>Focusing validation</b>The LPA near field is propagated to the focus with ASM to compute efficiency, FWHM and Strehl.</li>
+        <li><b>GDS</b>gdsfactory places one cell per diameter as instances (2.73 MB, 3 seconds).</li>
+        <li><b>3D viewer</b>three.js InstancedMesh draws the pillars, with phase error shown as color and the focal-plane |E|² as a texture.</li>
+      </ol>
+      <figure><a href="../../projects/img/metastudio/library.webp"><img src="../../projects/img/metastudio/library.webp" alt="Phase and transmittance vs pillar diameter" loading="lazy"></a>
+        <figcaption><b>Figure 1</b>Phase (blue) and zero-order transmittance (orange) vs pillar diameter. Over 50–220 nm the phase covers more than 2π and the transmittance stays at 0.89 or above.</figcaption></figure>
+    </section>
+
+    <section id="results">
+      <h2>Results — Ø 50 µm, f 100 µm lens</h2>
+      <p>The lens has 31,064 pillars and 5.7 Fresnel zones. It was placed with an RMS error of 0.067 rad vs the target phase (max 0.143) and a mean |t| of 0.982.</p>
+      <figure><a href="../../projects/img/metastudio/psf_report.webp"><img src="../../projects/img/metastudio/psf_report.webp" alt="ASM validation report" loading="lazy"></a>
+        <figcaption><b>Figure 2</b>Top: target phase, chosen pillar diameters, phase error. Bottom: focal-plane |E|², axial cross-section, azimuthally averaged PSF and the Airy pattern for the same NA.</figcaption></figure>
+      <table class="spec">
+        <tr><th>Focusing efficiency</th><td><strong>78.4 %</strong> (ideal lens with the same aperture 81.9 %)</td></tr>
+        <tr><th>Transmission</th><td>95.2 %</td></tr>
+        <tr><th>FWHM</th><td>1.194 µm (diffraction limit 1.127 µm)</td></tr>
+        <tr><th>Strehl</th><td>0.944</td></tr>
+        <tr><th>Focal position</th><td>z = 99 µm (design 100 µm)</td></tr>
+      </table>
+      <div class="figs">
+        <figure class="dark"><a href="../../projects/img/metastudio/viewer_hold.webp"><img src="../../projects/img/metastudio/viewer_hold.webp" alt="Full scene in the 3D viewer" loading="lazy"></a>
+          <figcaption><b>Figure 3</b>Browser 3D viewer. It draws the lens and the focal plane from the same design file. The light cone and rays are illustrative only.</figcaption></figure>
+        <figure class="dark"><a href="../../projects/img/metastudio/viewer_near.webp"><img src="../../projects/img/metastudio/viewer_near.webp" alt="Close-up of pillars" loading="lazy"></a>
+          <figcaption><b>Figure 4</b>Pillar close-up. Color is the phase error of each pillar.</figcaption></figure>
+      </div>
+      <p>The viewer draws the actual lens (31,064 pillars) at 60 fps. A benchmark with 10⁶ pillars (random placement) runs at 13.6–27.5 fps on a laptop integrated GPU (Intel Arc 140V): usable, but not smooth.</p>
+    </section>
+
+    <section id="validation">
+      <h2>Full-wave validation — how far does LPA hold?</h2>
+      <p>The full 50 µm lens cannot be solved in 3D full-wave, so I built D 8 µm lenses (740 pillars) from the same library, solved them with Meep 3D at NA 0.3–0.85, and compared them with three LPA models.</p>
+      <figure><a href="../../projects/img/metastudio/hina_summary.webp"><img src="../../projects/img/metastudio/hina_summary.webp" alt="LPA models vs Meep efficiency by NA" loading="lazy"></a>
+        <figcaption><b>Figure 5</b>Focusing efficiency by NA (left), transmission and efficiency ratio (center), per-pillar phase error (right). Red is Meep 3D.</figcaption></figure>
+      <table class="spec">
+        <tr><th>NA</th><td>0.3 · 0.5 · 0.7 · 0.85</td></tr>
+        <tr><th>Meep 3D</th><td>79.7 · 79.2 · 66.5 · 63.1 %</td></tr>
+        <tr><th>Band-limited LPA</th><td>79.2 · 76.1 · 69.2 · 58.0 %</td></tr>
+        <tr><th>Piecewise LPA</th><td>77.2 · 70.7 · 59.2 · 44.6 %</td></tr>
+      </table>
+      <p>Piecewise LPA underestimates the efficiency at NA 0.85 by more than 18 pp. Band-limited LPA stays within −2.7 ~ +5.1 pp of Meep, so <strong>I switched the default validation model to band-limited LPA</strong>. As a result, the 50 µm lens efficiency was also updated from 77.6 % (piecewise) to 78.4 %.</p>
+      <figure><a href="../../projects/img/metastudio/na085_compare.webp"><img src="../../projects/img/metastudio/na085_compare.webp" alt="NA 0.85 Meep vs LPA judgment figure" loading="lazy"></a>
+        <figcaption><b>Figure 6</b>NA 0.85: layout, LPA and Meep focal planes, per-pillar phase difference, LPA error vs phase gradient, PSF cross-section.</figcaption></figure>
+      <h3>Convergence and cross-checks</h3>
+      <ul>
+        <li>RCWA order fto 7 → 13: phase difference 0.4°. Empty cell gives T + R = 1, matching the Fresnel values.</li>
+        <li>Meep resolution 40 → 60 (NA 0.7): per-pillar phase RMS difference 0.031 rad, efficiency 66.5 → 66.1 %.</li>
+        <li>Replacing the lateral boundaries with PML changes the efficiency by less than 1 pp.</li>
+        <li>For the 50 µm lens, I ran Meep cylindrical on an axisymmetric homogenized surrogate device and got 59.0/67.0/68.9 % at resolution 20/30/45, extrapolated to about 70.5 %. This is 6–8 pp lower than LPA.</li>
+      </ul>
+    </section>
+
+    <section id="limits">
+      <h2>Limits and non-claims</h2>
+      <div class="claims">
+        <div><h3>Claims</h3><ul>
+          <li>Spec → GDS → validation → 3D runs as one command</li>
+          <li>For D 8 µm, NA 0.3–0.85, band-limited LPA stays within −3 ~ +5 pp of Meep 3D</li>
+        </ul></div>
+        <div class="no"><h3>Non-claims</h3><ul>
+          <li>The 78.4 % for the 50 µm lens is a model value, not a full-wave result for this lens</li>
+          <li>Material dispersion, oblique incidence and polarization dependence were not covered</li>
+          <li>DRC was not run on the GDS, and the lens was not fabricated</li>
+        </ul></div>
+      </div>
+      <p class="note">About 6 % of the spectrum is cut off at the edge of the ASM window, and this remains a systematic error in the transmission values.</p>
+    </section>
+
+    <section id="code">
+      <h2>Code layout</h2>
+      <ul>
+        <li><code>library/build_library.py</code> — builds the library with a meent sweep</li>
+        <li><code>design/__main__.py</code> — full run from the spec YAML to GDS, validation and viewer data</li>
+        <li><code>verify/asm.py</code> — ASM propagation and efficiency/PSF metrics</li>
+        <li><code>verify/meep_nearfield.py</code>, <code>verify/compare_meep.py</code> — Meep 3D near field and LPA comparison</li>
+        <li><code>verify/meep_cyl.py</code>, <code>verify/res_convergence.py</code> — cylindrical surrogate device and resolution convergence</li>
+        <li><code>viewer/</code> — three.js viewer</li>
+      </ul>
+      <p>All Meep runs used 4 processes in WSL on a personal PC. Work done 31 October – 2 November 2026.</p>
+    </section>
+  </article>
+</div>
+
+<nav class="pager">
+  <a href="../index.html#metasurface"><small>← Home</small>All projects</a>
+  <a class="next" href="./grating-coupler.html"><small>Next →</small>Inverse Design · Grating coupler</a>
+</nav>
+<footer>© 2026 Jinseong Bae · All figures are output from my own simulations. No copying or redistribution without permission · <a href="../../LICENSE.txt">LICENSE</a></footer>
+<script src="../../projects/project.js"></script>
+</body>
+</html>

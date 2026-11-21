@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI × Physics · Jinseong Bae</title>
+<meta name="description" content="An experiment that isolates when, and why, a metasurface surrogate (Meta-JEPA) fails to stand in for physics solvers, and differentiable imaging in which co-designing a DOE and a reconstruction network with a fabrication model reduces zero-order leakage.">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:url" content="https://jin-castle.github.io/en/projects/ai-physics.html">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="en_US">
+<meta property="og:title" content="AI × Physics · Jinseong Bae">
+<meta property="og:description" content="An experiment that isolates when, and why, a metasurface surrogate (Meta-JEPA) fails to stand in for physics solvers, and differentiable imaging in which co-designing a DOE and a reconstruction network with a fabrication model reduces zero-order leakage.">
+<meta property="og:image" content="https://jin-castle.github.io/img/og-ai-physics.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link rel="stylesheet" href="../../projects/project.css">
+<link rel="alternate" hreflang="ko" href="https://jin-castle.github.io/projects/ai-physics.html">
+<link rel="alternate" hreflang="en" href="https://jin-castle.github.io/en/projects/ai-physics.html">
+<link rel="alternate" hreflang="x-default" href="https://jin-castle.github.io/projects/ai-physics.html">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="../index.html">Jinseong Bae</a>
+  <nav><a class="lang" href="../../projects/ai-physics.html" hreflang="ko" lang="ko">한국어</a><a href="../index.html#ai-physics">← Home</a><a class="hide-sm" href="./ar-waveguide.html">Next project →</a></nav>
+</header>
+
+<div class="hero">
+  <p class="idx">04 — AI × PHYSICS · Surrogates &amp; differentiable optics</p>
+  <h1>Testing whether neural surrogates<br>can replace physics solvers</h1>
+  <p class="lead">Two experiments. The first tests whether a neural network pretrained on cheap low-fidelity calculations can predict metasurface near fields, and isolates the cause of its failure (Meta-JEPA). The second checks what changes when an optical element and a reconstruction network are trained together with fabrication effects included in a differentiable way (differentiable imaging).</p>
+  <ul class="kpis">
+    <li><b>≈ 0.5</b><span>Near-field relative L2 error, trained on 20,000 low-order RCWA samples · tested at high order</span></li>
+    <li><b>N<sup>−0.07</sup></b><span>Learning-curve slope — the error barely drops with more data</span></li>
+    <li><b>3.2 → 0.06<small>%</small></b><span>DOE zero-order leakage, co-design with a fabrication model</span></li>
+    <li><b>1.28 → 0.71<small>px</small></b><span>Depth estimation error (EPE) under fabrication conditions</span></li>
+  </ul>
+  <p class="tags"><span>PyTorch</span><span>fmmax RCWA</span><span>FNO · JEPA</span><span>PADO</span><span>1D/2D RCWA calibration</span></p>
+</div>
+
+<div class="wrap">
+  <nav class="toc" aria-label="Contents">
+    <a href="#jepa">A. Meta-JEPA</a><a href="#jepa-setup">Setup</a><a href="#jepa-results">Results and isolating the cause</a>
+    <a href="#diffimg">B. Differentiable imaging</a><a href="#di-setup">Setup</a><a href="#di-results">Results</a>
+    <a href="#limits">Limitations</a><a href="#code">Code</a>
+  </nav>
+  <article>
+    <section id="jepa">
+      <h2>A. Meta-JEPA pilot — No-go, and why</h2>
+      <p>High-fidelity RCWA is expensive. If a latent representation is learned from tens of thousands of cheap low-order RCWA runs and then adapted with 50 or fewer high-order labels, does it become a usable surrogate? I fixed the Go criteria before starting: <strong>with 50 or fewer labels, error at most half that of an FNO, and a latent-representation probe R² of 0.9 or higher</strong>.</p>
+      <p>The conclusion is No-go. The more important result is isolating why it fails. At first I attributed it to the fidelity gap between low and high order, but the error stayed the same in a test that removed that gap, so the cause was <strong>generalization to unseen geometries</strong>.</p>
+    </section>
+
+    <section id="jepa-setup">
+      <h2>Setup</h2>
+      <table class="spec">
+        <tr><th>Physics model</th><td>2D TE, fmmax RCWA. Period 1.2 µm, TiO₂ (n 2.4) pillars in 8 slots (16 parameters: widths and offsets), height 0.6 µm, glass substrate n 1.45</td></tr>
+        <tr><th>Conditions</th><td>λ 0.40–0.70 µm, incidence angle 0–30°</td></tr>
+        <tr><th>Fidelity</th><td>Low order M = 8 → M = 16, high order M = 40 (half-width of Fourier orders)</td></tr>
+        <tr><th>Outputs</th><td>Near fields Ey·Hx·Hz on three planes and diffraction efficiencies for |m| ≤ 3</td></tr>
+        <tr><th>Data</th><td>Pretraining: 20,000 low order (λ 0.45–0.65) · adaptation: up to 200 high order · test: 500 high order (including out-of-range wavelengths)</td></tr>
+        <tr><th>Model</th><td>3.0M parameters. Slot transformer encoder, (λ, θ)-conditioned predictor, INR decoder, auxiliary efficiency head. Baselines: 1D FNO; training from scratch</td></tr>
+        <tr><th>Error metric</th><td>Relative L2 of the test near fields (0.5 ≈ 50 %)</td></tr>
+      </table>
+      <figure><a href="../../projects/img/ai-physics/jepa_data.webp"><img src="../../projects/img/ai-physics/jepa_data.webp" alt="Near-field comparison across fidelities" loading="lazy"></a>
+        <figcaption><b>Figure 1</b>Near fields and diffraction efficiencies of the same geometry solved at M = 40/16/8, and the distribution of fidelity gaps. At M = 16 the median gap is 0.049, 6× smaller than at M = 8 (0.313).</figcaption></figure>
+    </section>
+
+    <section id="jepa-results">
+      <h2>Results and isolating the cause</h2>
+      <table class="spec">
+        <tr><th>M = 8 pretraining</th><td>Meta-JEPA 0.597 → 0.559 after adapting on 200 · FNO 0.507 → 0.500. Probe R² about 0.1</td></tr>
+        <tr><th>M = 16 pretraining</th><td>FNO 0.532 · Meta-JEPA 0.538 → 0.525 after adaptation · high-order labels only 0.788 · large FNO (width 256) 0.478</td></tr>
+        <tr><th>Learning curve (FNO)</th><td>N = 2.5k/5k/10k/20k → 0.610/0.579/0.560/0.532, error ∝ N<sup>−0.07</sup></td></tr>
+        <tr><th>Residual learning</th><td>Feeding the low-order solution as input and learning only the difference to high order: 0.313 → 0.251 (M = 8), 0.049 → 0.039 (M = 16)</td></tr>
+      </table>
+      <h3>The control experiment that identified the cause</h3>
+      <p>If the fidelity gap were the cause, the error should drop sharply on a held-out test solved at the same low order as training (M = 16) instead of high order. The result was 0.529, almost the same. <strong>The error remains even with the fidelity gap set to zero, so the remaining error is generalization error on new geometries</strong>. This experiment overturned my first judgment at M = 8 that "the fidelity gap dominates".</p>
+      <div class="figs">
+        <figure><a href="../../projects/img/ai-physics/jepa_run2.webp"><img src="../../projects/img/ai-physics/jepa_run2.webp" alt="Label-efficiency judgment figure" loading="lazy"></a>
+          <figcaption><b>Figure 2</b>M = 8 judgment: error versus number of labels, error per plane, auxiliary head, latent probe, pretraining curve.</figcaption></figure>
+        <figure><a href="../../projects/img/ai-physics/jepa_resid.webp"><img src="../../projects/img/ai-physics/jepa_resid.webp" alt="Residual-learning judgment figure" loading="lazy"></a>
+          <figcaption><b>Figure 3</b>Residual learning: label efficiency, error per plane, error at wavelengths inside and outside the training range.</figcaption></figure>
+      </div>
+      <p class="note">Not every model stalled near 0.5. The large FNO went down to 0.478, but with a training loss of 0.0003 it was overfitting. So I write "≈ 0.48–0.54".</p>
+    </section>
+
+    <section id="diffimg">
+      <h2>B. Differentiable imaging — HW·SW co-design with a fabrication model</h2>
+      <p>I reproduced learned structured-light stereo (Polka Lines, CVPR 2021) in simplified form with the open-source PADO. A diffractive optical element (DOE) projects a dot pattern, and a neural network recovers depth from two camera images. The problem is that a DOE trained with an ideal thin-element model breaks down once it goes through real fabrication (8-level height quantization, etch error, edge diffraction).</p>
+      <p>So I made an RCWA-calibrated fabrication model differentiable and put it in the training loop. In particular, I looked at how much <strong>zero-order leakage</strong> (light that passes straight through without being diffracted), which bears directly on eye safety, is reduced.</p>
+    </section>
+
+    <section id="di-setup">
+      <h2>Setup</h2>
+      <table class="spec">
+        <tr><th>Optics</th><td>940 nm, DOE 128 × 128 (pitch 1.5 µm), field of view 36°, camera baseline 50 mm, depth 0.2–1 m, Fraunhofer propagation</td></tr>
+        <tr><th>Sensor</th><td>1/z² falloff, Gaussian blur σ 0.7, shot and read noise, saturation</td></tr>
+        <tr><th>Fabrication model</th><td>Edge proxy calibrated with my own 1D RCWA (S-matrix + Li factorization). Fused silica n 1.451, 8 height levels, etch error σ 3 %</td></tr>
+        <tr><th>Reconstruction network</th><td>Correlation cost volume → 2D U-Net → soft-argmin</td></tr>
+        <tr><th>Loss</th><td>smooth-L1(disparity) + 200 · max(0, zero order − 0.5 %)</td></tr>
+      </table>
+      <figure><a href="../../projects/img/ai-physics/polka_compare.webp"><img src="../../projects/img/ai-physics/polka_compare.webp" alt="Comparison of passive, random and learned DOE" loading="lazy"></a>
+        <figcaption><b>Figure 4</b>Reproduction stage: pattern, captured images and depth error for no projector / random-phase DOE / learned DOE. EPE 4.47 → 0.79 → 0.69 px.</figcaption></figure>
+      <div class="figs">
+        <figure><a href="../../projects/img/ai-physics/proxy_cal.webp"><img src="../../projects/img/ai-physics/proxy_cal.webp" alt="1D RCWA calibration" loading="lazy"></a>
+          <figcaption><b>Figure 5</b>Calibrating the edge proxy with 1D RCWA: order-efficiency error 21 → 5.6 %.</figcaption></figure>
+        <figure><a href="../../projects/img/ai-physics/proxy_2d.webp"><img src="../../projects/img/ai-physics/proxy_2d.webp" alt="2D fmmax validation" loading="lazy"></a>
+          <figcaption><b>Figure 6</b>Validation with 2D fmmax: error 29 → 10.9 %.</figcaption></figure>
+      </div>
+    </section>
+
+    <section id="di-results">
+      <h2>Results</h2>
+      <figure><a href="../../projects/img/ai-physics/fab_aware.webp"><img src="../../projects/img/ai-physics/fab_aware.webp" alt="Fabrication-aware co-design" loading="lazy"></a>
+        <figcaption><b>Figure 7</b>Top: the DOE as designed, the same DOE after fabrication, and the co-designed DOE. Bottom: EPE as fabrication effects are added step by step, evaluation under fabrication conditions, and zero-order leakage during training.</figcaption></figure>
+      <table class="spec">
+        <tr><th>Fabrication effect breakdown</th><td>EPE 0.69 (ideal) → 1.02 → 1.09 → 1.28 → 1.28 px (in order: 8 levels, rigorous model, etch error)</td></tr>
+        <tr><th>Only the network retrained</th><td>EPE 0.739 px, zero order unchanged at 3.2 %</td></tr>
+        <tr><th>DOE co-designed as well</th><td>EPE <strong>0.708 px</strong>, zero order <strong>0.06 %</strong> (mean of 8 runs 0.00063 ± 0.00060)</td></tr>
+      </table>
+      <p>The control separated the roles. <strong>Most of the depth-error recovery comes from the neural network, and the zero-order suppression comes from the hardware (DOE)</strong>. The fraction of same-height neighbors stays at 0.13, so the zero-order suppression was obtained by adjusting the phase balance, not by making the structure smoother.</p>
+    </section>
+
+    <section id="limits">
+      <h2>Limitations and non-claims</h2>
+      <div class="claims">
+        <div><h3>Claims</h3><ul>
+          <li>Isolated with a control experiment that the Meta-JEPA failure is caused by geometry generalization, not fidelity</li>
+          <li>Putting a fabrication model into training can reduce zero-order leakage on the hardware side</li>
+        </ul></div>
+        <div class="no"><h3>Non-claims</h3><ul>
+          <li>Meta-JEPA used 1 seed; there is no Meep cross-check and no test on aperiodic structures</li>
+          <li>The full co-designed DOE was not computed full-wave (5 cells checked in 2D)</li>
+          <li>The extra depth-accuracy gain from co-designing the DOE is small, 0.03 px</li>
+          <li>No fabrication or real captures were done</li>
+        </ul></div>
+      </div>
+    </section>
+
+    <section id="code">
+      <h2>Code structure</h2>
+      <h3>Meta-JEPA</h3>
+      <ul>
+        <li><code>data/gen_fmmax.py</code> — RCWA data generation (checks R + T = 1 ± 1e-14)</li>
+        <li><code>model/metajepa.py</code>, <code>train.py</code> — model, plus pretraining, adaptation, FNO and residual modes</li>
+        <li><code>run_m16*.py</code>, <code>make_figure*.py</code> — rerun and judgment figures</li>
+      </ul>
+      <h3>Differentiable imaging</h3>
+      <ul>
+        <li><code>stage1_polka/model.py</code>, <code>train.py</code> — structured-light stereo reproduction</li>
+        <li><code>stage2_fab/rcwa1d.py</code>, <code>proxy.py</code>, <code>fabsim.py</code> — RCWA and fabrication proxy</li>
+        <li><code>stage2_fab/train_fab.py --mode joint</code>, <code>eval_fab.py</code> — co-design and evaluation</li>
+      </ul>
+      <p>Work done from 31 October to 2 November 2026. The differentiable imaging part used only public material (PADO, Polka Lines, DPS).</p>
+    </section>
+  </article>
+</div>
+
+<nav class="pager">
+  <a href="./mock-tapeout.html"><small>← Previous</small>Silicon Photonics · Mock tape-out</a>
+  <a class="next" href="./ar-waveguide.html"><small>Next →</small>AR Waveguide</a>
+</nav>
+<footer>© 2026 Jinseong Bae · All figures are output from my own calculations. No copying or redistribution without permission · <a href="../../LICENSE.txt">LICENSE</a></footer>
+<script src="../../projects/project.js"></script>
+</body>
+</html>

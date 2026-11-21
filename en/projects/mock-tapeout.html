@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mock Tape-out · Jinseong Bae</title>
+<meta name="description" content="A mock tape-out of a 220 nm SOI ring WDM bank, chained from mode analysis through layout, DRC, wafer Monte Carlo yield and link budget, with the assumptions checked against public openEBL measured data.">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:url" content="https://jin-castle.github.io/en/projects/mock-tapeout.html">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="en_US">
+<meta property="og:title" content="Mock Tape-out · Jinseong Bae">
+<meta property="og:description" content="A mock tape-out of a 220 nm SOI ring WDM bank, chained from mode analysis through layout, DRC, wafer Monte Carlo yield and link budget, with the assumptions checked against public openEBL measured data.">
+<meta property="og:image" content="https://jin-castle.github.io/img/og-mock-tapeout.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link rel="stylesheet" href="../../projects/project.css">
+<link rel="alternate" hreflang="ko" href="https://jin-castle.github.io/projects/mock-tapeout.html">
+<link rel="alternate" hreflang="en" href="https://jin-castle.github.io/en/projects/mock-tapeout.html">
+<link rel="alternate" hreflang="x-default" href="https://jin-castle.github.io/projects/mock-tapeout.html">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="../index.html">Jinseong Bae</a>
+  <nav><a class="lang" href="../../projects/mock-tapeout.html" hreflang="ko" lang="ko">한국어</a><a href="../index.html#silicon-photonics">← Home</a><a class="hide-sm" href="./ai-physics.html">Next project →</a></nav>
+</header>
+
+<div class="hero">
+  <p class="idx">03 — SILICON PHOTONICS · Mock tape-out</p>
+  <h1>Analyzing process variation<br>and yield of a ring WDM chip</h1>
+  <p class="lead">I treated the circuit response as a function of the width, thickness and temperature actually fabricated, not of the "drawn dimensions". For a 220 nm SOI 4-channel ring WDM bank, I chained mode analysis → circuit simulation → tile layout and DRC → wafer-map Monte Carlo yield → optical link budget. Finally, I checked my assumptions against public openEBL measured data.</p>
+  <ul class="kpis">
+    <li><b>4.172</b><span>Measured openEBL MZI group index n_g (±0.002)</span></li>
+    <li><b>92 → 100<small>%</small></b><span>Ring bank yield at σ_t 1 nm: fixed assignment → cyclic assignment + FSR of 4 channels</span></li>
+    <li><b>3.17<small>pJ/bit</small></b><span>Link energy, 4λ × 50 Gb/s, loss 13.9 dB</span></li>
+    <li><b>2.5 × 10⁵</b><span>Measured ring intrinsic Q, loss 2.98 dB/cm</span></li>
+  </ul>
+  <p class="tags"><span>MPB</span><span>gdsfactory · ubcpdk</span><span>SAX</span><span>klayout.db DRC</span><span>Monte Carlo</span></p>
+</div>
+
+<div class="wrap">
+  <nav class="toc" aria-label="Contents">
+    <a href="#why">Problem and motivation</a><a href="#setup">Model setup</a><a href="#method">Pipeline</a>
+    <a href="#yield">Yield</a><a href="#link">Link budget</a><a href="#measured">Measured check</a><a href="#limits">Limitations</a><a href="#code">Code</a>
+  </nav>
+  <article>
+    <section id="why">
+      <h2>Problem and motivation</h2>
+      <p>The resonance wavelength of a ring resonator shifts by nanometers when the waveguide width or silicon thickness changes by only 1 nm. So from a process point of view, the question is not "was it drawn as designed" but <strong>what percentage of dies on the wafer work, and how much heater power it takes to tune them</strong>. Aiming at a silicon photonics process engineering role, I followed this question once from the first design step to the end.</p>
+    </section>
+
+    <section id="setup">
+      <h2>Model setup</h2>
+      <table class="spec">
+        <tr><th>Waveguide</th><td>500 × 220 nm Si strip, SiO₂ upper and lower cladding, TE0, λ 1550 nm</td></tr>
+        <tr><th>Refractive index</th><td>Sellmeier: Si 3.4777, SiO₂ 1.4440 (1550 nm). Thermo-optic coefficients 1.86e-4 / 1.0e-5 K⁻¹</td></tr>
+        <tr><th>Mode analysis</th><td>MPB, 3 × 3 µm window, 64·96 px/µm. Sweeps of width 480–520 nm, thickness 210–230 nm, wavelength 1530–1570 nm, ΔT 10 K</td></tr>
+        <tr><th>Circuit</th><td>SAX: straight, Euler bend, ring coupler (Meep 2D results), 3 dB coupler, tap. Waveguide loss assumed 2.0 dB/cm</td></tr>
+        <tr><th>Process variation</th><td>Thickness σ_t 0.5–5 nm, width σ_w 2 nm. Wafer-to-wafer 30 %, radial 30 %, correlated component (correlation length 30 mm) 30 %, random per die 10 %. Ring-to-ring difference within a die 0.3 / 0.1 nm</td></tr>
+        <tr><th>Samples</th><td>400 wafers of 200 mm, 276 dies of 10 mm each ≈ 110,000 dies</td></tr>
+        <tr><th>Heater</th><td>4 mW/nm, cap of 30 mW per ring, red shift only, channel spacing 0.90 nm</td></tr>
+      </table>
+      <figure><a href="../../projects/img/mock-tapeout/mode.webp"><img src="../../projects/img/mock-tapeout/mode.webp" alt="Mode analysis and sensitivity" loading="lazy"></a>
+        <figcaption><b>Figure 1</b>n_eff versus width and thickness, wavelength dispersion, and ring resonance sensitivity. n_eff 2.447, n_g 4.196. Resonance shift: 0.59 nm/nm for width, 1.37 nm/nm for thickness, 74 pm/K for temperature.</figcaption></figure>
+    </section>
+
+    <section id="method">
+      <h2>Pipeline</h2>
+      <ol class="steps">
+        <li><b>Sensitivity</b>MPB gives n_eff, n_g and the sensitivities to width, thickness and temperature. Thickness is 2.3× more sensitive than width.</li>
+        <li><b>Circuit</b>A netlist is extracted from the gdsfactory layout, and SAX solves the MZI and the 4-channel ring add-drop bank. Drop loss 0.2–0.3 dB, crosstalk −18 / −28 dB.</li>
+        <li><b>Tile and DRC</b>ubcpdk builds a 605 × 410 µm tile with process monitors (3 cutback types, width-pair MZIs, reference ring). DRC checks minimum width and spacing of 60 nm, floorplan boundary, measurement labels, and 127 µm GC pitch.</li>
+        <li><b>Wafer Monte Carlo</b>For each die, (dw, dt) is sampled, the ring resonances are computed, and the script checks whether the heaters can tune them onto the channels and at what power.</li>
+        <li><b>Link budget</b>Losses are accumulated from the laser to the receiver, and pJ/bit is broken down.</li>
+      </ol>
+      <div class="figs">
+        <figure><a href="../../projects/img/mock-tapeout/filter_bank.webp"><img src="../../projects/img/mock-tapeout/filter_bank.webp" alt="Ring filter bank spectrum" loading="lazy"></a>
+          <figcaption><b>Figure 2</b>Drop spectra of the 4-channel ring bank (top) and their shift under process variation (bottom).</figcaption></figure>
+        <figure><a href="../../projects/img/mock-tapeout/tile1.webp"><img src="../../projects/img/mock-tapeout/tile1.webp" alt="Tile layout" loading="lazy"></a>
+          <figcaption><b>Figure 3</b>Tile 1 layout: cutbacks, MZI pairs, rings, grating coupler array.</figcaption></figure>
+      </div>
+    </section>
+
+    <section id="yield">
+      <h2>Yield — what channel assignment changes</h2>
+      <p>With thickness variation σ_t of 1 / 2 / 3 nm, fixing ring i to channel i (design A) drops the yield to 92.4 / 74.8 / 59.9 %. Because the heaters can only shift toward red, a ring that is pushed too far toward longer wavelengths cannot reach its own channel within 30 mW.</p>
+      <p>Cyclic reassignment of which ring takes which channel alone (design B) gave the same yield. <strong>Setting the FSR to 4× the channel spacing together with cyclic assignment (design C) brought the yield to 100 %</strong>. Any ring can then catch the next channel within one FSR. In this case the mean heater power per ring is 8.1–8.2 mW, and the 95th percentile is 14.7 mW.</p>
+      <figure><a href="../../projects/img/mock-tapeout/wafer_mc.webp"><img src="../../projects/img/mock-tapeout/wafer_mc.webp" alt="Wafer map Monte Carlo" loading="lazy"></a>
+        <figcaption><b>Figure 4</b>Wafer maps (thickness variation, heater power per die), yield versus σ_t, mean and 95th-percentile power, ring bias scan.</figcaption></figure>
+      <p class="note">92 % is from the first run (literature-based sensitivities); rerunning with the MPB sensitivities gives 94.1 %. The component fractions and σ values are assumptions.</p>
+    </section>
+
+    <section id="link">
+      <h2>Link budget</h2>
+      <p>I assumed 4 wavelengths × 50 Gb/s NRZ, ring modulators (extinction ratio 5 dB, insertion loss 4 dB), receiver sensitivity −9 dBm OMA, 3 dB margin, and 12 % laser efficiency. Covering the 13.9 dB total loss requires 7.9 dBm (6.2 mW) of laser power per wavelength. The energy is 3.17 pJ/bit (design A), of which the heaters take 0.59 pJ/bit (19 %). Design C is 2.90 pJ/bit.</p>
+      <figure><a href="../../projects/img/mock-tapeout/link.webp"><img src="../../projects/img/mock-tapeout/link.webp" alt="Link budget" loading="lazy"></a>
+        <figcaption><b>Figure 5</b>Optical power staircase (left), pJ/bit breakdown of good dies (center), cost per good die versus variation (right). Variation shows up in yield more than in pJ/bit.</figcaption></figure>
+    </section>
+
+    <section id="measured">
+      <h2>Measured check — public openEBL data</h2>
+      <p>I did not fabricate a chip myself, but I took the measured data released from the SiEPIC openEBL 2025-05 run (L. Chrostowski et al., 2 MZI types and 17 gaps of R = 10 µm rings, 5 pm step) and fitted it with my model. Each device was normalized by its own envelope, dispersion was fixed to the model value, and split resonances (doublets) were fitted with a two-mode model.</p>
+      <figure><a href="../../projects/img/mock-tapeout/openebl.webp"><img src="../../projects/img/mock-tapeout/openebl.webp" alt="openEBL measured data fit" loading="lazy"></a>
+        <figcaption><b>Figure 6</b>n_g extraction from MZI trough fits, ring doublet fits, coupling coefficient κ² and loss per gap, and a table comparing assumptions with measurements.</figcaption></figure>
+      <table class="spec">
+        <tr><th>MZI n_g</th><td><strong>4.172 ± 0.002</strong> (ΔL 251 µm, 25 troughs). ±0.01 across methods. Mode solver value 4.175</td></tr>
+        <tr><th>Ring Q_i</th><td>247,785 (range 170k–270k), loss 2.98 dB/cm</td></tr>
+        <tr><th>Coupling</th><td>Measured κ² 0.009 at gap 200 nm — the assumed 0.049 is <strong>overestimated by about 5×</strong>. κ² decay length 104 nm, critical-coupling gap about 239 nm</td></tr>
+        <tr><th>Loss</th><td>The assumption (Q_i 184,000, 4 dB/cm) is, if anything, more pessimistic than the measurement</td></tr>
+        <tr><th>Y-branch</th><td>Split ratio 0.54 : 0.46</td></tr>
+      </table>
+      <p>Before that, I scored the extraction procedure on a virtual chip with a known answer. n_g 4.1857 vs true 4.1856, (dw, dt) = (−7.00, +3.00) nm recovered, Q_i 184,800 vs 184,400.</p>
+      <figure><a href="../../projects/img/mock-tapeout/pair.webp"><img src="../../projects/img/mock-tapeout/pair.webp" alt="Separating width and thickness with an MZI pair" loading="lazy"></a>
+        <figcaption><b>Figure 7</b>Virtual chip: the procedure for separating (dw, dt) from the trough positions of an MZI pair with different widths.</figcaption></figure>
+    </section>
+
+    <section id="limits">
+      <h2>Limitations and non-claims</h2>
+      <div class="claims">
+        <div><h3>Claims</h3><ul>
+          <li>Computed everything from mode analysis to yield and link energy in a single flow</li>
+          <li>Confirmed with public measurements that the coupling assumption was overestimated by about 5×, and corrected it</li>
+        </ul></div>
+        <div class="no"><h3>Non-claims</h3><ul>
+          <li>I did not fabricate or measure a chip — the measured data come from someone else's chip</li>
+          <li>The measurements cannot pin down (dw, dt) at the nm level (method error ±0.01 n_g)</li>
+          <li>The SAX ring is based on 2D Meep, so FSR and sensitivity are overestimated; thermal crosstalk, PAM4 and modulator variation are not included</li>
+          <li>Tile 2 still has DRC spacing violations, and it was not submitted to openEBL</li>
+        </ul></div>
+      </div>
+    </section>
+
+    <section id="code">
+      <h2>Code structure</h2>
+      <ul>
+        <li><code>mode/mpb_strip.py</code>, <code>mode/analyze.py</code> — mode analysis and sensitivity</li>
+        <li><code>run_01_mzi.py</code>, <code>run_02_filter_bank.py</code> — SAX circuits</li>
+        <li><code>tapeout/die.py</code>, <code>tapeout/drc.py</code> — tile layout and DRC</li>
+        <li><code>mc/wafer_mc.py</code> — wafer Monte Carlo (<code>--validate</code> cross-checks against SAX, max error 0.002 nm)</li>
+        <li><code>link/link_budget.py</code> — link budget</li>
+        <li><code>basic/s1–s7_*.py</code> — virtual-chip scoring and openEBL measurement analysis</li>
+      </ul>
+      <p>Work done on 19–20 September 2026. Measured data source: <a href="https://github.com/SiEPIC/openEBL-2025-05" target="_blank" rel="noopener">SiEPIC/openEBL-2025-05</a>.</p>
+    </section>
+  </article>
+</div>
+
+<nav class="pager">
+  <a href="./grating-coupler.html"><small>← Previous</small>Inverse Design · Grating coupler</a>
+  <a class="next" href="./ai-physics.html"><small>Next →</small>AI × Physics</a>
+</nav>
+<footer>© 2026 Jinseong Bae · All figures are output from my own calculations. Measured data are public SiEPIC openEBL data. No copying or redistribution without permission · <a href="../../LICENSE.txt">LICENSE</a></footer>
+<script src="../../projects/project.js"></script>
+</body>
+</html>

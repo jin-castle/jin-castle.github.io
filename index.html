@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jinseong Bae — Computational Nanophotonics</title>
+<meta name="description" content="Independent researcher in computational nanophotonics: metasurfaces, adjoint inverse design, AR waveguides, silicon photonics and physics-aware machine learning.">
+<link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<meta property="og:url" content="https://jin-castle.github.io/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Jinseong Bae — Computational Nanophotonics">
+<meta property="og:description" content="Independent researcher in computational nanophotonics: metasurfaces, adjoint inverse design, AR waveguides, silicon photonics and physics-aware machine learning.">
+<meta property="og:image" content="https://jin-castle.github.io/img/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="./style.css">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script>
+  // static page when WebGL2 or the 3D module is unavailable (main.js removes the class once it renders)
+  (function () {
+    var ok = false; try { ok = !!document.createElement('canvas').getContext('webgl2'); } catch (e) {}
+    if (!ok) document.documentElement.classList.add('no-webgl');
+    else setTimeout(function () { if (!window.__site) document.documentElement.classList.add('no-webgl'); }, 8000);
+  })();
+</script>
+<link rel="alternate" hreflang="ko" href="https://jin-castle.github.io/">
+<link rel="alternate" hreflang="en" href="https://jin-castle.github.io/en/">
+<link rel="alternate" hreflang="x-default" href="https://jin-castle.github.io/">
+</head>
+<body>
+<canvas id="stage" aria-hidden="true"></canvas>
+<div id="callouts" aria-hidden="true"><svg id="leaders"></svg></div>
+
+<aside id="opt-hud" class="hud" aria-hidden="true">
+  <p class="hud-k">Adjoint 최적화 · 실제 실행 기록</p>
+  <div class="hud-num">
+    <div><span>Iteration</span><b id="hud-it">0</b><i>/ 45</i></div>
+    <div><span>FOM η</span><b id="hud-fom">—</b><i>%</i></div>
+  </div>
+  <svg id="hud-plot" viewBox="0 0 240 90" preserveAspectRatio="none">
+    <line x1="0" y1="86" x2="240" y2="86" class="axis"/>
+    <path id="hud-all" class="all"/><path id="hud-done" class="done"/><circle id="hud-dot" r="3.5"/>
+  </svg>
+  <div class="hud-meta"><span>β <b id="hud-beta">8</b></span><span>회색 픽셀 <b id="hud-gray">100</b> %</span></div>
+  <p class="hud-step" id="hud-step">&nbsp;</p>
+  <p class="hud-fine">η = 1530·1550·1570 nm 평균 결합 효율(2D, res 40). 날카로운 경계로 다시 계산한 최종값은 45.3 %.</p>
+</aside>
+
+<header class="brand"><a href="#top">Jinseong Bae</a><a class="lang" href="./en/index.html" hreflang="en" lang="en">EN</a></header>
+
+<nav class="rail" aria-label="Sections">
+  <a href="#metasurface" data-i="1"><span>Metasurface</span></a>
+  <a href="#inverse-design" data-i="2"><span>Inverse Design</span></a>
+  <a href="#silicon-photonics" data-i="3"><span>Silicon Photonics</span></a>
+  <a href="#ai-physics" data-i="4"><span>AI × Physics</span></a>
+  <a href="#ar-waveguide" data-i="5"><span>AR Waveguide</span></a>
+  <a href="#open-science" data-i="6"><span>Open Science</span></a>
+  <a href="#about" data-i="7"><span>About</span></a>
+</nav>
+
+<main>
+    <section id="top" class="stop hero" data-stop="0">
+    <div class="hero-copy">
+      <p class="kicker reveal">Independent Researcher · Computational Nanophotonics</p>
+      <h1 class="ladder">Designing light<br>at the nanoscale</h1>
+      <p class="lead reveal">물리 시뮬레이션과 기울기 기반 역설계로 메타표면·도파관·실리콘 포토닉스 소자를 설계하고, 그 결과를 끝까지 검증합니다.</p>
+    </div>
+    <a class="scroll-cue" href="#metasurface" aria-label="Scroll"><i></i></a>
+  </section>
+
+    <section id="metasurface" class="stop" data-stop="1">
+    <div class="panel">
+      <p class="idx reveal">01 — MetaStudio</p>
+      <h2 class="ladder">Metasurface</h2>
+      <p class="lead reveal">스펙 한 줄에서 메타렌즈 GDS와 3D 뷰어까지. 단위셀 라이브러리(RCWA) → 위상 배치 → 집속 검증 → 레이아웃을 한 파이프라인으로 묶었습니다.</p>
+      <ul class="stats reveal">
+        <li><b>78.4<small>%</small></b><span>집속 효율 (Ø 50 µm, f 100 µm, LPA + ASM 모델)</span></li>
+        <li><b>31,064</b><span>TiO₂ 필러, 532 nm</span></li>
+        <li><b>10⁶</b><span>필러 3D 뷰어 벤치마크, 노트북 내장 GPU 14–28 fps</span></li>
+      </ul>
+      <p class="body reveal">D 8 µm 렌즈를 NA 0.3–0.85에서 Meep 3D로 풀어, 대역제한 LPA 모델이 풀웨이브와 −3 ~ +5 %p 안에 든다는 것을 확인하고 기본 검증 모델로 채택했습니다.</p>
+      <p class="tags reveal"><span>meent RCWA</span><span>Meep 3D</span><span>gdsfactory</span><span>three.js</span></p>
+      <p class="fine reveal">효율은 각스펙트럼(ASM) 전파 모델 값이며 풀웨이브 결과가 아닙니다. 3D는 휴대폰 카메라 모듈 속 메타렌즈의 자리를 보여주는 분해도로, 설계한 부품은 메타렌즈뿐이고 크기·간격은 연출입니다.</p>
+      <p class="links reveal"><a href="./projects/metastudio.html">시뮬레이션 자세히 보기 →</a></p>
+      <p class="flow reveal">렌즈가 모은 빛은 아래의 그레이팅 커플러로 들어갑니다.</p>
+    </div>
+  </section>
+
+    <section id="inverse-design" class="stop" data-stop="2">
+    <div class="panel">
+      <p class="idx reveal">02 — Adjoint grating coupler</p>
+      <h2 class="ladder">Inverse Design</h2>
+      <p class="lead reveal">70 nm 식각층을 픽셀마다 밀도 ρ(0 = 식각, 1 = 실리콘)로 둡니다. 중간값 ρ는 두 물질 사이의 유전율 ε(ρ)라서 미분할 수 있고, 균일한 회색(ρ = 0.5)에서 출발한 최적화가 ~630 nm 주기와 apodization을 스스로 찾아냈습니다.</p>
+      <ol class="loop reveal" id="adjoint-loop">
+        <li><b>Forward</b><span>입사광으로 설계 영역의 전기장 E 계산</span></li>
+        <li><b>Adjoint</b><span>출력 도파관에서 목표 모드를 거꾸로 보내 E<sup>†</sup> 계산</span></li>
+        <li><b>Gradient</b><span>∂F/∂ε ∝ Re(E·E<sup>†</sup>) — 두 번의 계산으로 모든 픽셀의 기울기</span></li>
+        <li><b>Update</b><span>기울기 방향으로 ρ를 옮기고, β를 키워 회색을 0/1로</span></li>
+      </ol>
+      <ul class="stats reveal">
+        <li><b>45.3<small>%</small></b><span>경계 선명화 후 2D, 1550 nm (res 160)</span></li>
+        <li><b>44.5<small>%</small></b><span>3D FDTDX 검증 (−3.51 dB, 추정)</span></li>
+        <li><b>0.4–2.3<small>%</small></b><span>adjoint 기울기 vs 유한차분 오차</span></li>
+      </ul>
+      <p class="tags reveal"><span>Meep adjoint</span><span>NLopt MMA</span><span>FDTDX (JAX)</span><span>GDS</span></p>
+      <p class="fine reveal">실제 실행은 2D, β 8 → 64로 45회 반복했습니다. 보간 때문에 부풀려진 값(49 %)은 버리고 날카로운 경계로 다시 계산한 값을 씁니다. 3D 값은 44 nm 격자 결과에 2D 해상도 보정을 더한 추정치입니다. 3D 재생의 FOM·β·회색 픽셀은 그 실행의 기록이고, β 단계 끝에 저장한 설계 4개 사이의 구조는 보간했으며, 막대는 업데이트마다 바뀐 ρ입니다. 3D 모양은 3D 검증에 쓴 GDS(500 nm 도파로 → 반각 22° 부채꼴, 공초점 타원 트렌치)를 따르고 높이는 과장했으며, 장(field) 무늬는 연출입니다.</p>
+      <p class="links reveal"><a href="./projects/grating-coupler.html">시뮬레이션 자세히 보기 →</a></p>
+      <p class="flow reveal">칩 안으로 들어온 빛은 같은 칩의 링 공진기 뱅크로 흘러갑니다.</p>
+    </div>
+  </section>
+
+    <section id="silicon-photonics" class="stop" data-stop="3">
+    <div class="panel">
+      <p class="idx reveal">03 — Mock tape-out</p>
+      <h2 class="ladder">Silicon Photonics</h2>
+      <p class="lead reveal">모드 해석 → 레이아웃 → DRC → 웨이퍼 몬테카를로 → 링크 예산. 공정 편차가 수율로 어떻게 번지는지 끝까지 따라간 모의 테이프아웃입니다.</p>
+      <ul class="stats reveal">
+        <li><b>4.172</b><span>openEBL 실측 n_g (모델 4.175)</span></li>
+        <li><b>92 → 100<small>%</small></b><span>링 뱅크 수율, 순환 배정 + FSR 4채널 (링당 평균 8 mW)</span></li>
+        <li><b>3.17<small>pJ/bit</small></b><span>링크 에너지 (손실 13.9 dB)</span></li>
+      </ul>
+      <p class="body reveal">공개된 openEBL 측정 데이터로 링 Q<sub>i</sub> ≈ 2.5 × 10⁵ 와 결합 계수를 추출해, 결합 가정이 약 5배 과대였다는 것을 확인했습니다.</p>
+      <p class="tags reveal"><span>gdsfactory</span><span>SAX</span><span>MPB</span><span>KLayout DRC</span></p>
+      <p class="links reveal"><a href="./projects/mock-tapeout.html">시뮬레이션 자세히 보기 →</a></p>
+      <p class="flow reveal">링이 파장별로 골라낸 신호는 검출기를 거쳐 신경망의 입력이 됩니다.</p>
+    </div>
+  </section>
+
+    <section id="ai-physics" class="stop" data-stop="4">
+    <div class="panel">
+      <p class="idx reveal">04 — Surrogates &amp; differentiable optics</p>
+      <h2 class="ladder">AI × Physics</h2>
+      <p class="lead reveal">신경망이 물리를 대신할 수 있는지, 언제 못 하는지를 숫자로 확인합니다. 결론이 No-go여도 이유까지 분리해 기록합니다.</p>
+      <ul class="stats reveal">
+        <li><b>≈ 0.5</b><span>메타표면 surrogate 근접장 상대 오차, 2만 개 학습 후</span></li>
+        <li><b>−0.07</b><span>학습 곡선 기울기: 데이터로는 못 내림</span></li>
+        <li><b>3.2 → 0.06<small>%</small></b><span>DOE·복원망 공동 설계로 0차 누설 억제</span></li>
+      </ul>
+      <p class="body reveal">Meta-JEPA 파일럿에서는 오차의 원인이 충실도 차이가 아니라 새 형상 일반화라는 것을 분리했습니다. 미분 이미징에서는 공정 모델을 넣은 HW·SW 공동 최적화를 했습니다.</p>
+      <p class="tags reveal"><span>PyTorch</span><span>JAX</span><span>FNO / JEPA</span><span>PADO</span></p>
+      <p class="links reveal"><a href="./projects/ai-physics.html">시뮬레이션 자세히 보기 →</a></p>
+      <p class="flow reveal">신경망이 만든 출력은 AR 프로젝터의 빛이 됩니다.</p>
+    </div>
+  </section>
+
+    <section id="ar-waveguide" class="stop" data-stop="5">
+    <div class="panel">
+      <p class="idx reveal">05 — End-to-end AR optics</p>
+      <h2 class="ladder">AR Waveguide</h2>
+      <p class="lead reveal">AR 글래스 한쪽 광학 모듈을 분해했습니다. 마이크로 디스플레이의 빛이 유리 도파관 안을 전반사로 이동해 눈 앞에서 빠져나옵니다. 이 중 in/out 커플러 격자를 역설계하고, 이미지가 망막에 어떻게 맺히는지까지 시뮬레이션했습니다.</p>
+      <ul class="stats reveal">
+        <li><b>Λ 2<small>µm</small></b><span>자유형상 in/out 커플러 + 1차 fold</span></li>
+        <li><b>17 × 3</b><span>out-coupler 최적화 각도 (세로줄 감소)</span></li>
+        <li><b>n 2.0</b><span>유리 도파관, 540 nm</span></li>
+      </ul>
+      <p class="body reveal">각도 몇 개로만 단위셀을 최적화하면 그 사이 Rayleigh anomaly가 화면에 세로줄을 만든다는 것을 찾아내고, 각도 샘플링을 늘려 크게 줄였습니다.</p>
+      <p class="tags reveal"><span>fmmax RCWA</span><span>JAX</span><span>beam tracing</span><span>Meep 2D</span></p>
+      <p class="links reveal"><a href="./projects/ar-waveguide.html">시뮬레이션 자세히 보기 →</a></p>
+      <p class="flow reveal">이 빛 한 줄기가 마지막으로 프리즘을 지나 여러 색으로 퍼집니다.</p>
+    </div>
+  </section>
+
+    <section id="open-science" class="stop" data-stop="6">
+    <div class="panel">
+      <p class="idx reveal">06 — Writing &amp; open source</p>
+      <h2 class="ladder">Open Science</h2>
+      <p class="lead reveal">흰빛 한 줄기가 프리즘을 지나 여러 색으로 퍼지듯, 혼자 재현한 예제 하나가 누군가의 첫 시뮬레이션이 되기를 바라며 공개합니다. Meep 공식 예제를 직접 돌리고, 수렴성과 "주장할 수 있는 것과 없는 것"까지 적은 한국어 해설입니다.</p>
+      <ul class="stats reveal">
+        <li><b>14</b><span>Meep 예제 해설 글</span></li>
+        <li><b>0.015 → 0.78</b><span>bend adjoint 예제 재현, 출력 모드 투과율</span></li>
+      </ul>
+      <p class="posts reveal" id="posts"><span data-k="0">01 점광원·선광원</span><span data-k="1">02 경계 조건·PML</span><span data-k="2">03 Reference run</span><span data-k="3">04 직선 도파관</span><span data-k="4">05 굽은 도파관</span><span data-k="5">06 Binary grating</span><span data-k="6">07 Meta-atom</span><span data-k="7">08 Metagrating 역설계</span><span data-k="8">09 Bend 역설계</span><span data-k="9">10 3D 방사 패턴</span><span data-k="10">11 LDOS·Purcell</span><span data-k="11">12 링 공진기</span><span data-k="12">13 원통 좌표 쌍극자</span><span data-k="13">14 광추출 효율</span></p>
+      <p class="fine reveal">광선 하나가 글 한 편입니다. 모든 글에 코드와 재실행 결과가 있습니다. 3D의 굴절은 스넬 법칙을 따르지만 분산(색이 갈라지는 정도)과 파장 간격은 보기 좋게 과장했습니다.</p>
+      <p class="links reveal"><a href="./projects/open-science.html">시리즈 자세히 보기 →</a><a href="https://jin-castle.github.io/meep-examples/" target="_blank" rel="noopener">블로그 열기 →</a><a href="https://github.com/jin-castle" target="_blank" rel="noopener">GitHub →</a></p>
+    </div>
+  </section>
+
+    <section id="about" class="stop about" data-stop="7">
+    <div class="panel wide">
+      <p class="idx reveal">About</p>
+      <h2 class="ladder">Career</h2>
+      <ol class="timeline reveal">
+        <li><time>2026 —</time><div><b>Independent Researcher</b><span>메타표면 자동설계, AR 광학계, 실리콘 포토닉스, 물리 기반 ML</span></div></li>
+        <li><time>2025.03 — 2026.08</time><div><b>한양대학교 전자융합공학 석박사 통합과정 (중퇴)</b><span>Electromagnetics &amp; Intelligent Design Lab, 지도교수 정해준 · Meep adjoint 역설계, 공정 공차를 고려한 최적화, 연구실 시뮬레이션 지식 베이스 구축</span></div></li>
+        <li><time>2025.03 — 2025.08</time><div><b>University of Melbourne 방문연구원</b><span>김세정 교수 연구실 · 2D 소재 PL 측정 셋업 구축, RGB·WDM용 클래딩 없는 빔스플리터 역설계 협업</span></div></li>
+        <li><time>2023.12 — 2024.02</time><div><b>KIST 센서시스템연구센터 연구인턴</b><span>망막 임플란트용 다공성 세포 지지체 공정 개선 (SEM · XPS)</span></div></li>
+        <li><time>2019.03 — 2025.02</time><div><b>한양대학교 신소재공학 학사</b><span>졸업 과제: HfO₂ high-κ MOSCAP 제작과 C–V · I–V 분석</span></div></li>
+      </ol>
+      <div class="cols reveal">
+        <div><h3>Publications</h3><p>M. Bae, C.-C. Pan, C. Kang, <b>J. Bae</b>, D. Park, S. Lee, C. Park, H. Ren, J. Rho, H. Chung, S. Kim, “Inverse design for enhanced chiroptical response with chiral nanophotonic structures,” <em>APL Photonics</em> 10, 100901 (2025), Perspective. <a href="https://doi.org/10.1063/5.0271883" target="_blank" rel="noopener">doi:10.1063/5.0271883 ↗</a></p></div>
+        <div><h3>Tools</h3><p>Meep · FDTDX · meent · fmmax · MPB · gdsfactory · SAX · JAX · PyTorch · three.js</p></div>
+      </div>
+    </div>
+  </section>
+
+    <section id="contact" class="stop contact" data-stop="8">
+    <div class="contact-copy">
+      <p class="kicker reveal">Contact</p>
+      <p class="mail reveal"><a href="mailto:bgs4652@gmail.com">bgs4652@gmail.com</a></p>
+      <p class="links reveal"><a href="https://github.com/jin-castle" target="_blank" rel="noopener">GitHub</a><a href="https://jin-castle.github.io/meep-examples/" target="_blank" rel="noopener">Meep Blog</a><a href="https://www.linkedin.com/in/jinseong217" target="_blank" rel="noopener">LinkedIn</a><a href="./cv.pdf" target="_blank" rel="noopener">CV (PDF)</a></p>
+    </div>
+    <footer>
+      <p class="wordmark">Jinseong Bae</p>
+      <p class="fine">3D 오브젝트는 각 프로젝트를 표현한 일러스트이며 시뮬레이션 출력이 아닙니다. 소자 사이를 잇는 빛 줄기는 연출이며 하나의 실제 시스템이 아닙니다(파장도 532 · 1550 · 540 nm로 다름). 색은 양식화했습니다. © 2026 Jinseong Bae. 글·그림·코드의 무단 복제와 재배포를 금합니다 · <a href="./LICENSE.txt">LICENSE</a></p>
+    </footer>
+  </section>
+</main>
+
+<script>   // the 3D module only where WebGL2 exists; otherwise the static fallback stays
+  if (!document.documentElement.classList.contains('no-webgl')) { var m = document.createElement('script'); m.type = 'module'; m.src = './main.js'; document.body.append(m); }
+</script>
+</body>
+</html>

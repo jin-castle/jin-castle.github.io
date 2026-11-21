@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grating Coupler Inverse Design · Jinseong Bae</title>
+<meta name="description" content="Inverse design of a 70 nm shallow-etch SOI grating coupler with 2D Meep adjoint optimization started from uniform gray, then checked as GDS and in FDTDX 3D.">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:url" content="https://jin-castle.github.io/en/projects/grating-coupler.html">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="en_US">
+<meta property="og:title" content="Grating Coupler Inverse Design · Jinseong Bae">
+<meta property="og:description" content="Inverse design of a 70 nm shallow-etch SOI grating coupler with 2D Meep adjoint optimization started from uniform gray, then checked as GDS and in FDTDX 3D.">
+<meta property="og:image" content="https://jin-castle.github.io/img/og-grating-coupler.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link rel="stylesheet" href="../../projects/project.css">
+<link rel="alternate" hreflang="ko" href="https://jin-castle.github.io/projects/grating-coupler.html">
+<link rel="alternate" hreflang="en" href="https://jin-castle.github.io/en/projects/grating-coupler.html">
+<link rel="alternate" hreflang="x-default" href="https://jin-castle.github.io/projects/grating-coupler.html">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="../index.html">Jinseong Bae</a>
+  <nav><a class="lang" href="../../projects/grating-coupler.html" hreflang="ko" lang="ko">한국어</a><a href="../index.html#inverse-design">← Home</a><a class="hide-sm" href="./mock-tapeout.html">Next project →</a></nav>
+</header>
+
+<div class="hero">
+  <p class="idx">02 — INVERSE DESIGN · Adjoint grating coupler</p>
+  <h1>Optimizing a grating coupler<br>with adjoint inverse design</h1>
+  <p class="lead">A grating coupler takes light from an optical fiber into a silicon waveguide. I designed one with adjoint optimization, giving it no answer and starting from uniform gray (density ρ = 0.5). The optimizer found a period of about 630 nm and an apodization in which the feature widths change with position on its own. I converted this pattern into a fabrication GDS and checked it again with 3D simulation.</p>
+  <ul class="kpis">
+    <li><b>45.3<small>%</small></b><span>2D coupling efficiency, sharp boundaries, res 160, 1550 nm (−3.44 dB)</span></li>
+    <li><b>44.5<small>%</small></b><span>3D estimate, FDTDX 44 nm + 2D resolution correction (−3.51 dB)</span></li>
+    <li><b>+3.2<small>dB</small></b><span>vs a uniform grating at the same resolution</span></li>
+    <li><b>0.4–2.3<small>%</small></b><span>adjoint gradient vs finite-difference error</span></li>
+  </ul>
+  <p class="tags"><span>Meep adjoint</span><span>NLopt MMA</span><span>conic filter · tanh projection</span><span>gdsfactory</span><span>FDTDX (JAX)</span></p>
+</div>
+
+<div class="wrap">
+  <nav class="toc" aria-label="Contents">
+    <a href="#why">Problem and motivation</a><a href="#setup">Simulation setup</a><a href="#method">Method</a>
+    <a href="#evolution">How the design grows</a><a href="#results">Results</a><a href="#gds">GDS and 3D</a>
+    <a href="#validation">Validation</a><a href="#limits">Limits</a><a href="#code">Code</a>
+  </nav>
+  <article>
+    <section id="why">
+      <h2>Problem and motivation</h2>
+      <p>A grating coupler converts a fiber mode arriving obliquely from above into a waveguide mode on the chip. A uniform grating, tuned through only two variables (period and fill factor), cannot match the beam shape, so its efficiency has an upper bound. In an earlier example that optimized only those two variables, the limit was about 26 %.</p>
+      <p>I therefore widened the problem to topology inverse design, with the whole etch pattern as the variable. A single 70 nm shallow etch means the structure can be made with one mask. Instead of placing the initial value near a known answer, I <strong>started from uniform gray</strong> to see what the optimizer would find.</p>
+    </section>
+
+    <section id="setup">
+      <h2>Simulation setup</h2>
+      <table class="spec">
+        <tr><th>Solver</th><td>Meep 2D (x–z cross-section), MPI with 6 processes</td></tr>
+        <tr><th>Layer stack</th><td>Si 220 nm (n 3.45) / BOX SiO₂ 2 µm (n 1.45) / Si substrate, air above. PML 1 µm</td></tr>
+        <tr><th>Design region</th><td>70 nm etch layer on the top surface, length 14 µm, 1D density with 701 pixels (20 nm)</td></tr>
+        <tr><th>Source</th><td>Gaussian beam, 10° from normal, beam waist 5.2 µm, focused on the Si surface</td></tr>
+        <tr><th>Monitor</th><td>TE0 eigenmode coefficient at x = −2 µm on the waveguide side</td></tr>
+        <tr><th>Objective</th><td>Mean TE0 coupling efficiency (|α|² / incident power) at 1530, 1550 and 1570 nm</td></tr>
+        <tr><th>Resolution</th><td>40 px/µm for optimization, 100 and 160 px/µm for evaluation</td></tr>
+      </table>
+    </section>
+
+    <section id="method">
+      <h2>Method</h2>
+      <ol class="steps">
+        <li><b>Density representation</b>ρ(x) ∈ [0, 1], where 0 is etched and 1 is silicon. Intermediate values map to a permittivity between the two, which keeps the problem differentiable.</li>
+        <li><b>Filter and projection</b>A conic filter of radius 100 nm suppresses features that are too small, and the tanh projection β is raised 8 → 16 → 32 → 64 to push gray toward 0/1.</li>
+        <li><b>Adjoint gradient</b>One forward and one adjoint simulation give the gradient for all 701 pixels.</li>
+        <li><b>Update</b>NLopt MMA with 15 / 10 / 10 / 10 iterations per stage, 45 in total, 54 minutes.</li>
+        <li><b>Post-processing</b>I removed 2 protrusions smaller than 100 nm (minimum tooth 100 nm, trench 140 nm) and rescaled the design along x so that the peak sits at 1550 nm.</li>
+      </ol>
+    </section>
+
+    <section id="evolution">
+      <h2>How the design grows</h2>
+      <p>In the first three iterations the efficiency is almost 0, because a uniform gray slab does not couple light. From the fourth iteration on, a periodic structure appears along the gradient and the efficiency rises quickly. Each time β increases, the efficiency drops briefly and then recovers, and the gray disappears.</p>
+      <div class="figs">
+        <figure><a href="../../projects/img/grating-coupler/design_it13.webp"><img src="../../projects/img/grating-coupler/design_it13.webp" alt="Intermediate design at iteration 13" loading="lazy"></a>
+          <figcaption><b>Figure 1</b>Iteration 13 (β 8): grayness 0.19, mean efficiency 0.446. From top: density, cross-section, local period, local fill factor.</figcaption></figure>
+        <figure><a href="../../projects/img/grating-coupler/design_it45.webp"><img src="../../projects/img/grating-coupler/design_it45.webp" alt="Final design at iteration 45" loading="lazy"></a>
+          <figcaption><b>Figure 2</b>Iteration 45 (β 64): grayness 0.03, mean efficiency 0.469. Under the beam the period has settled evenly at about 630 nm.</figcaption></figure>
+      </div>
+      <p>In the structure the optimizer found, the silicon teeth are thin (100 nm) on the waveguide side and grow thicker further along (340 nm), while the trenches narrow the other way, 540 → 300 nm. This is textbook apodization: the scattering strength increases gradually to match the Gaussian shape of the beam.</p>
+    </section>
+
+    <section id="results">
+      <h2>Results</h2>
+      <figure><a href="../../projects/img/grating-coupler/evaluation.webp"><img src="../../projects/img/grating-coupler/evaluation.webp" alt="Final pattern, spectrum and field" loading="lazy"></a>
+        <figcaption><b>Figure 3</b>Final etch pattern, coupling spectrum vs a uniform grating, optimization history, and |Ez| at 1550 nm (light entering from above couples into the waveguide on the left).</figcaption></figure>
+      <h3>Efficiency vs resolution (recomputed with sharp boundaries)</h3>
+      <table class="spec">
+        <tr><th>res 25</th><td>32.0 % @ 1522.5 nm</td></tr>
+        <tr><th>res 45</th><td>36.3 % @ 1527.5 nm</td></tr>
+        <tr><th>res 100</th><td>43.5 % @ 1542.5 nm</td></tr>
+        <tr><th>res 160</th><td><strong>45.3 % @ 1550 nm</strong>, 1 dB bandwidth 37.5 nm</td></tr>
+      </table>
+      <p class="note warn">The res 100 value measured with the MaterialGrid representation during optimization was 49.2 %. Recomputed with sharp boundaries at the same resolution, it is 43.5 %, so I do not report 49 % as a result. A 50 nm trench was also removed in between, so I do not attribute the whole difference to the representation.</p>
+    </section>
+
+    <section id="gds">
+      <h2>GDS and 3D validation</h2>
+      <p>I turned the 1D pattern into a focusing grating coupler with confocal elliptical lines (half-angle 22°, taper 12 µm, 500 nm waveguide) and generated the GDS. The layers are WG 1/0 and SHALLOW_ETCH 2/6.</p>
+      <figure><a href="../../projects/img/grating-coupler/gds.webp"><img src="../../projects/img/grating-coupler/gds.webp" alt="Focusing GC GDS" loading="lazy"></a>
+        <figcaption><b>Figure 4</b>Final GDS: 220 nm Si (blue) and 70 nm etch (orange), fiber mode position (red dashed line), and a close-up of the beam center.</figcaption></figure>
+      <p>For 3D, FDTDX (JAX) read the GDS directly and computed the full domain without symmetry (44 nm grid, 773 × 522 × 113, 1 ps, subpixel smoothing). Compared with 2D on the same 44 nm grid, the 3D loss is about −0.3 dB.</p>
+      <figure><a href="../../projects/img/grating-coupler/fields3d.webp"><img src="../../projects/img/grating-coupler/fields3d.webp" alt="FDTDX 3D field and spectrum" loading="lazy"></a>
+        <figcaption><b>Figure 5</b>FDTDX 3D: |Ey| in the Si layer as the fiber beam converges into the waveguide, spectrum (3D 44.8 % @ 1565 nm, compared with Meep 2D), and x–z cross-section.</figcaption></figure>
+      <figure><a href="../../projects/img/grating-coupler/align.webp"><img src="../../projects/img/grating-coupler/align.webp" alt="1550 nm alignment and 3D estimate" loading="lazy"></a>
+        <figcaption><b>Figure 6</b>Rescaling to place the peak at 1550 nm (left, 2D 11 nm) and the 2D/3D comparison on the same grid (right, 44 nm).</figcaption></figure>
+      <p>The 44 nm grid resolves the 70 nm etch with only 1.6 cells. I therefore report the final 3D value as the 3D (44 nm) result plus the 2D difference between 11 nm and 44 nm: <strong>an estimate of 44.5 % @ 1549.8 nm (−3.51 dB)</strong>.</p>
+    </section>
+
+    <section id="validation">
+      <h2>Validation</h2>
+      <ul>
+        <li><strong>Gradient check</strong>: at res 40, β 8, ρ = 0.5, directional derivatives along three directions (gradient sign, random, bump at 6.1 µm) compared with finite differences (h = 0.02) give errors of 1.42 / 2.32 / 0.41 %.</li>
+        <li><strong>Resolution</strong>: the efficiency is still rising and the peak still red-shifting at res 160, so it has not fully converged.</li>
+        <li><strong>Between solvers</strong>: a difference of about 2–3 pp and 10 nm remains between FDTDX 2D and Meep 2D, and I have not found its cause.</li>
+      </ul>
+    </section>
+
+    <section id="limits">
+      <h2>Limits and non-claims</h2>
+      <div class="claims">
+        <div><h3>Claims</h3><ul>
+          <li>Adjoint optimization started from uniform gray found the period and the apodization on its own</li>
+          <li>Sharp-boundary 2D 45.3 % and 3D estimate 44.5 % are about 3 dB higher than a uniform grating</li>
+        </ul></div>
+        <div class="no"><h3>Non-claims</h3><ul>
+          <li>Optimization was done in 2D TE only. No 3D inverse design was done</li>
+          <li>44.5 % is an extrapolated estimate, not a measurement, and 3D used only one grid size</li>
+          <li>There is no process-tolerance robustness, reflection or seed comparison, and the device was not fabricated</li>
+        </ul></div>
+      </div>
+    </section>
+
+    <section id="code">
+      <h2>Code layout</h2>
+      <ul>
+        <li><code>gc2d/gc2d_adjoint.py</code> — 2D optimization (<code>-mode opt | gradcheck | plot</code>)</li>
+        <li><code>gc2d/evaluate_gc2d.py</code>, <code>clean_design.py</code>, <code>stretch_design.py</code> — evaluation and post-processing</li>
+        <li><code>gc3d/make_gds.py</code> — focusing GC GDS</li>
+        <li><code>gc3d/fdtdx/gc_fdtdx.py</code>, <code>analyze_align.py</code> — 3D validation and 1550 nm alignment</li>
+      </ul>
+      <p>The 2D optimization ran in WSL on a personal PC, and the 3D validation ran on a Colab A100. Work done 27 September – 14 October 2026.</p>
+    </section>
+  </article>
+</div>
+
+<nav class="pager">
+  <a href="./metastudio.html"><small>← Previous</small>Metasurface · MetaStudio</a>
+  <a class="next" href="./mock-tapeout.html"><small>Next →</small>Silicon Photonics · Mock tape-out</a>
+</nav>
+<footer>© 2026 Jinseong Bae · All figures are output from my own simulations. No copying or redistribution without permission · <a href="../../LICENSE.txt">LICENSE</a></footer>
+<script src="../../projects/project.js"></script>
+</body>
+</html>

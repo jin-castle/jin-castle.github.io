@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jinseong Bae — Computational Nanophotonics</title>
+<meta name="description" content="Independent researcher in computational nanophotonics: metasurfaces, adjoint inverse design, AR waveguides, silicon photonics and physics-aware machine learning.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<meta property="og:url" content="https://jin-castle.github.io/en/">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="en_US">
+<meta property="og:title" content="Jinseong Bae — Computational Nanophotonics">
+<meta property="og:description" content="Independent researcher in computational nanophotonics: metasurfaces, adjoint inverse design, AR waveguides, silicon photonics and physics-aware machine learning.">
+<meta property="og:image" content="https://jin-castle.github.io/img/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="../style.css">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script>
+  // static page when WebGL2 or the 3D module is unavailable (main.js removes the class once it renders)
+  (function () {
+    var ok = false; try { ok = !!document.createElement('canvas').getContext('webgl2'); } catch (e) {}
+    if (!ok) document.documentElement.classList.add('no-webgl');
+    else setTimeout(function () { if (!window.__site) document.documentElement.classList.add('no-webgl'); }, 8000);
+  })();
+</script>
+<link rel="alternate" hreflang="ko" href="https://jin-castle.github.io/">
+<link rel="alternate" hreflang="en" href="https://jin-castle.github.io/en/">
+<link rel="alternate" hreflang="x-default" href="https://jin-castle.github.io/">
+</head>
+<body>
+<canvas id="stage" aria-hidden="true"></canvas>
+<div id="callouts" aria-hidden="true"><svg id="leaders"></svg></div>
+
+<aside id="opt-hud" class="hud" aria-hidden="true">
+  <p class="hud-k">Adjoint optimization · recorded run</p>
+  <div class="hud-num">
+    <div><span>Iteration</span><b id="hud-it">0</b><i>/ 45</i></div>
+    <div><span>FOM η</span><b id="hud-fom">—</b><i>%</i></div>
+  </div>
+  <svg id="hud-plot" viewBox="0 0 240 90" preserveAspectRatio="none">
+    <line x1="0" y1="86" x2="240" y2="86" class="axis"/>
+    <path id="hud-all" class="all"/><path id="hud-done" class="done"/><circle id="hud-dot" r="3.5"/>
+  </svg>
+  <div class="hud-meta"><span>β <b id="hud-beta">8</b></span><span>gray pixels <b id="hud-gray">100</b> %</span></div>
+  <p class="hud-step" id="hud-step">&nbsp;</p>
+  <p class="hud-fine">η = coupling efficiency averaged over 1530·1550·1570 nm (2D, res 40). The final value, recomputed with sharp boundaries, is 45.3 %.</p>
+</aside>
+
+<header class="brand"><a href="#top">Jinseong Bae</a><a class="lang" href="../index.html" hreflang="ko" lang="ko">한국어</a></header>
+
+<nav class="rail" aria-label="Sections">
+  <a href="#metasurface" data-i="1"><span>Metasurface</span></a>
+  <a href="#inverse-design" data-i="2"><span>Inverse Design</span></a>
+  <a href="#silicon-photonics" data-i="3"><span>Silicon Photonics</span></a>
+  <a href="#ai-physics" data-i="4"><span>AI × Physics</span></a>
+  <a href="#ar-waveguide" data-i="5"><span>AR Waveguide</span></a>
+  <a href="#open-science" data-i="6"><span>Open Science</span></a>
+  <a href="#about" data-i="7"><span>About</span></a>
+</nav>
+
+<main>
+    <section id="top" class="stop hero" data-stop="0">
+    <div class="hero-copy">
+      <p class="kicker reveal">Independent Researcher · Computational Nanophotonics</p>
+      <h1 class="ladder">Designing light<br>at the nanoscale</h1>
+      <p class="lead reveal">I design metasurface, waveguide and silicon photonics devices with physics simulation and gradient-based inverse design, and I validate the results all the way through.</p>
+    </div>
+    <a class="scroll-cue" href="#metasurface" aria-label="Scroll"><i></i></a>
+  </section>
+
+    <section id="metasurface" class="stop" data-stop="1">
+    <div class="panel">
+      <p class="idx reveal">01 — MetaStudio</p>
+      <h2 class="ladder">Metasurface</h2>
+      <p class="lead reveal">From a one-line spec to a metalens GDS and a 3D viewer. Unit-cell library (RCWA) → phase placement → focusing check → layout, joined in a single pipeline.</p>
+      <ul class="stats reveal">
+        <li><b>78.4<small>%</small></b><span>Focusing efficiency (Ø 50 µm, f 100 µm, LPA + ASM model)</span></li>
+        <li><b>31,064</b><span>TiO₂ pillars, 532 nm</span></li>
+        <li><b>10⁶</b><span>pillars in the 3D viewer benchmark, 14–28 fps on a laptop integrated GPU</span></li>
+      </ul>
+      <p class="body reveal">I solved a D 8 µm lens at NA 0.3–0.85 in Meep 3D, confirmed that the band-limited LPA model stays within −3 to +5 pp of full-wave, and adopted it as the default validation model.</p>
+      <p class="tags reveal"><span>meent RCWA</span><span>Meep 3D</span><span>gdsfactory</span><span>three.js</span></p>
+      <p class="fine reveal">Efficiency is a value from the angular spectrum (ASM) propagation model, not a full-wave result. The 3D scene is an exploded view showing where a metalens sits inside a phone camera module. The metalens is the only part I designed; sizes and spacings are for illustration.</p>
+      <p class="links reveal"><a href="./projects/metastudio.html">Simulation details →</a></p>
+      <p class="flow reveal">The light the lens collects enters the grating coupler below.</p>
+    </div>
+  </section>
+
+    <section id="inverse-design" class="stop" data-stop="2">
+    <div class="panel">
+      <p class="idx reveal">02 — Adjoint grating coupler</p>
+      <h2 class="ladder">Inverse Design</h2>
+      <p class="lead reveal">Each pixel of the 70 nm etch layer is a density ρ (0 = etched, 1 = silicon). An intermediate ρ is a permittivity ε(ρ) between the two materials, so it is differentiable. Starting from uniform gray (ρ = 0.5), the optimization found a ~630 nm period and apodization on its own.</p>
+      <ol class="loop reveal" id="adjoint-loop">
+        <li><b>Forward</b><span>Compute the electric field E in the design region from the incident light</span></li>
+        <li><b>Adjoint</b><span>Send the target mode backward from the output waveguide to compute E<sup>†</sup></span></li>
+        <li><b>Gradient</b><span>∂F/∂ε ∝ Re(E·E<sup>†</sup>) — the gradient for every pixel from two simulations</span></li>
+        <li><b>Update</b><span>Move ρ along the gradient, and raise β to push gray to 0/1</span></li>
+      </ol>
+      <ul class="stats reveal">
+        <li><b>45.3<small>%</small></b><span>2D after boundary sharpening, 1550 nm (res 160)</span></li>
+        <li><b>44.5<small>%</small></b><span>3D FDTDX validation (−3.51 dB, estimate)</span></li>
+        <li><b>0.4–2.3<small>%</small></b><span>adjoint gradient vs finite-difference error</span></li>
+      </ul>
+      <p class="tags reveal"><span>Meep adjoint</span><span>NLopt MMA</span><span>FDTDX (JAX)</span><span>GDS</span></p>
+      <p class="fine reveal">The actual run was 2D, 45 iterations with β 8 → 64. The value inflated by interpolation (49 %) is discarded; the value recomputed with sharp boundaries is used. The 3D value is an estimate: the 44 nm grid result plus a 2D resolution correction. FOM, β and gray pixels in the 3D replay are records of that run. Structures between the 4 designs saved at the end of each β stage are interpolated, and the bars show ρ as it changed at each update. The 3D shape follows the GDS used for the 3D validation (500 nm waveguide → 22° half-angle fan, confocal elliptical trenches) with exaggerated height, and the field pattern is for illustration.</p>
+      <p class="links reveal"><a href="./projects/grating-coupler.html">Simulation details →</a></p>
+      <p class="flow reveal">Light coupled into the chip flows on to the ring resonator bank on the same chip.</p>
+    </div>
+  </section>
+
+    <section id="silicon-photonics" class="stop" data-stop="3">
+    <div class="panel">
+      <p class="idx reveal">03 — Mock tape-out</p>
+      <h2 class="ladder">Silicon Photonics</h2>
+      <p class="lead reveal">Mode analysis → layout → DRC → wafer Monte Carlo → link budget. A mock tape-out that follows, end to end, how process variation propagates into yield.</p>
+      <ul class="stats reveal">
+        <li><b>4.172</b><span>n_g measured on openEBL (model 4.175)</span></li>
+        <li><b>92 → 100<small>%</small></b><span>Ring bank yield, cyclic assignment + 4 channels per FSR (8 mW per ring on average)</span></li>
+        <li><b>3.17<small>pJ/bit</small></b><span>Link energy (13.9 dB loss)</span></li>
+      </ul>
+      <p class="body reveal">From public openEBL measurement data I extracted the ring Q<sub>i</sub> ≈ 2.5 × 10⁵ and the coupling coefficient, and found that the coupling assumption was overestimated by about 5×.</p>
+      <p class="tags reveal"><span>gdsfactory</span><span>SAX</span><span>MPB</span><span>KLayout DRC</span></p>
+      <p class="links reveal"><a href="./projects/mock-tapeout.html">Simulation details →</a></p>
+      <p class="flow reveal">The signals the rings select by wavelength pass through detectors and become the input of a neural network.</p>
+    </div>
+  </section>
+
+    <section id="ai-physics" class="stop" data-stop="4">
+    <div class="panel">
+      <p class="idx reveal">04 — Surrogates &amp; differentiable optics</p>
+      <h2 class="ladder">AI × Physics</h2>
+      <p class="lead reveal">I check with numbers whether a neural network can replace physics, and when it cannot. When the conclusion is No-go, I still isolate and record the reason.</p>
+      <ul class="stats reveal">
+        <li><b>≈ 0.5</b><span>Near-field relative error of a metasurface surrogate after training on 20,000 samples</span></li>
+        <li><b>−0.07</b><span>Learning-curve slope: more data does not bring it down</span></li>
+        <li><b>3.2 → 0.06<small>%</small></b><span>zero-order leakage suppressed by co-designing the DOE and the reconstruction network</span></li>
+      </ul>
+      <p class="body reveal">In the Meta-JEPA pilot, I isolated the cause of the error: generalization to new geometries, not the fidelity gap. In differentiable imaging, I ran HW·SW co-optimization with a fabrication process model included.</p>
+      <p class="tags reveal"><span>PyTorch</span><span>JAX</span><span>FNO / JEPA</span><span>PADO</span></p>
+      <p class="links reveal"><a href="./projects/ai-physics.html">Simulation details →</a></p>
+      <p class="flow reveal">The output of the neural network becomes the light of an AR projector.</p>
+    </div>
+  </section>
+
+    <section id="ar-waveguide" class="stop" data-stop="5">
+    <div class="panel">
+      <p class="idx reveal">05 — End-to-end AR optics</p>
+      <h2 class="ladder">AR Waveguide</h2>
+      <p class="lead reveal">An exploded view of the optical module for one eye of AR glasses. Light from a micro display travels through a glass waveguide by total internal reflection and exits in front of the eye. I inverse-designed the in/out coupler gratings in this path and simulated how the image forms on the retina.</p>
+      <ul class="stats reveal">
+        <li><b>Λ 2<small>µm</small></b><span>Freeform in/out couplers + first-order fold</span></li>
+        <li><b>17 × 3</b><span>out-coupler optimization angles (fewer vertical stripes)</span></li>
+        <li><b>n 2.0</b><span>Glass waveguide, 540 nm</span></li>
+      </ul>
+      <p class="body reveal">I found that optimizing the unit cell at only a few angles lets Rayleigh anomalies between those angles draw vertical stripes across the image, and reduced them substantially by sampling more angles.</p>
+      <p class="tags reveal"><span>fmmax RCWA</span><span>JAX</span><span>beam tracing</span><span>Meep 2D</span></p>
+      <p class="links reveal"><a href="./projects/ar-waveguide.html">Simulation details →</a></p>
+      <p class="flow reveal">Finally, one ray of this light passes through a prism and spreads into many colors.</p>
+    </div>
+  </section>
+
+    <section id="open-science" class="stop" data-stop="6">
+    <div class="panel">
+      <p class="idx reveal">06 — Writing &amp; open source</p>
+      <h2 class="ladder">Open Science</h2>
+      <p class="lead reveal">As a single ray of white light spreads into many colors through a prism, I publish these hoping that one example I reproduced on my own becomes someone's first simulation. I run the official Meep examples myself and write walkthroughs in Korean, with an English TL;DR, that cover convergence and "what it shows and what it does not show".</p>
+      <ul class="stats reveal">
+        <li><b>14</b><span>Meep example walkthroughs</span></li>
+        <li><b>0.015 → 0.78</b><span>bend adjoint example reproduction, output-mode transmittance</span></li>
+      </ul>
+      <p class="posts reveal" id="posts"><span data-k="0">01 Point · line sources</span><span data-k="1">02 Boundaries · PML</span><span data-k="2">03 Reference run</span><span data-k="3">04 Straight waveguide</span><span data-k="4">05 Bent waveguide</span><span data-k="5">06 Binary grating</span><span data-k="6">07 Meta-atom</span><span data-k="7">08 Metagrating inverse design</span><span data-k="8">09 Bend inverse design</span><span data-k="9">10 3D radiation pattern</span><span data-k="10">11 LDOS · Purcell</span><span data-k="11">12 Ring resonator</span><span data-k="12">13 Cylindrical dipole</span><span data-k="13">14 Light extraction efficiency</span></p>
+      <p class="fine reveal">Each ray is one post. Every post includes the code and rerun results. Refraction in the 3D scene follows Snell's law, but dispersion (how far the colors split) and wavelength spacing are exaggerated for visibility.</p>
+      <p class="links reveal"><a href="./projects/open-science.html">About the series →</a><a href="https://jin-castle.github.io/meep-examples/" target="_blank" rel="noopener">Open the blog →</a><a href="https://github.com/jin-castle" target="_blank" rel="noopener">GitHub →</a></p>
+    </div>
+  </section>
+
+    <section id="about" class="stop about" data-stop="7">
+    <div class="panel wide">
+      <p class="idx reveal">About</p>
+      <h2 class="ladder">Career</h2>
+      <ol class="timeline reveal">
+        <li><time>2026 —</time><div><b>Independent Researcher</b><span>Metasurface auto-design, AR optics, silicon photonics, physics-based ML</span></div></li>
+        <li><time>2025.03 — 2026.08</time><div><b>Hanyang University, Electronic &amp; Convergence Engineering, Integrated M.S.–Ph.D. program (withdrew)</b><span>Electromagnetics &amp; Intelligent Design Lab, advisor Prof. Haejun Chung · Meep adjoint inverse design, optimization accounting for fabrication tolerances, built the lab's simulation knowledge base</span></div></li>
+        <li><time>2025.03 — 2025.08</time><div><b>University of Melbourne, Visiting Researcher</b><span>Prof. Sejeong Kim's lab · built a PL measurement setup for 2D materials, collaborated on inverse design of cladding-free beam splitters for RGB and WDM</span></div></li>
+        <li><time>2023.12 — 2024.02</time><div><b>Research Intern, KIST Sensor System Research Center</b><span>Process improvement of porous cell scaffolds for retinal implants (SEM · XPS)</span></div></li>
+        <li><time>2019.03 — 2025.02</time><div><b>Hanyang University, B.S. in Materials Science &amp; Engineering</b><span>Capstone project: fabrication of HfO₂ high-κ MOSCAPs and C–V · I–V analysis</span></div></li>
+      </ol>
+      <div class="cols reveal">
+        <div><h3>Publications</h3><p>M. Bae, C.-C. Pan, C. Kang, <b>J. Bae</b>, D. Park, S. Lee, C. Park, H. Ren, J. Rho, H. Chung, S. Kim, “Inverse design for enhanced chiroptical response with chiral nanophotonic structures,” <em>APL Photonics</em> 10, 100901 (2025), Perspective. <a href="https://doi.org/10.1063/5.0271883" target="_blank" rel="noopener">doi:10.1063/5.0271883 ↗</a></p></div>
+        <div><h3>Tools</h3><p>Meep · FDTDX · meent · fmmax · MPB · gdsfactory · SAX · JAX · PyTorch · three.js</p></div>
+      </div>
+    </div>
+  </section>
+
+    <section id="contact" class="stop contact" data-stop="8">
+    <div class="contact-copy">
+      <p class="kicker reveal">Contact</p>
+      <p class="mail reveal"><a href="mailto:bgs4652@gmail.com">bgs4652@gmail.com</a></p>
+      <p class="links reveal"><a href="https://github.com/jin-castle" target="_blank" rel="noopener">GitHub</a><a href="https://jin-castle.github.io/meep-examples/" target="_blank" rel="noopener">Meep Blog</a><a href="https://www.linkedin.com/in/jinseong217" target="_blank" rel="noopener">LinkedIn</a><a href="../cv.pdf" target="_blank" rel="noopener">CV (PDF)</a></p>
+    </div>
+    <footer>
+      <p class="wordmark">Jinseong Bae</p>
+      <p class="fine">The 3D objects are illustrations of each project, not simulation output. The light beams connecting the devices are for illustration and do not form one real system (the wavelengths also differ: 532 · 1550 · 540 nm). Colors are stylized. © 2026 Jinseong Bae. Text, figures and code may not be copied or redistributed without permission · <a href="../LICENSE.txt">LICENSE</a></p>
+    </footer>
+  </section>
+</main>
+
+<script>   // the 3D module only where WebGL2 exists; otherwise the static fallback stays
+  if (!document.documentElement.classList.contains('no-webgl')) { var m = document.createElement('script'); m.type = 'module'; m.src = '../main.js'; document.body.append(m); }
+</script>
+</body>
+</html>

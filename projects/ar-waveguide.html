@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AR Waveguide · Jinseong Bae</title>
+<meta name="description" content="Λ 2 µm 고차 결합 자유형상 in/out 커플러를 RCWA 미분으로 역설계하고, fold와 eyebox·망막 이미지까지 시스템 시뮬레이션한 AR 도파관 프로젝트.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<meta property="og:url" content="https://jin-castle.github.io/projects/ar-waveguide.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="AR Waveguide · Jinseong Bae">
+<meta property="og:description" content="Λ 2 µm 고차 결합 자유형상 in/out 커플러를 RCWA 미분으로 역설계하고, fold와 eyebox·망막 이미지까지 시스템 시뮬레이션한 AR 도파관 프로젝트.">
+<meta property="og:image" content="https://jin-castle.github.io/img/og-ar-waveguide.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link rel="stylesheet" href="./project.css">
+<link rel="alternate" hreflang="ko" href="https://jin-castle.github.io/projects/ar-waveguide.html">
+<link rel="alternate" hreflang="en" href="https://jin-castle.github.io/en/projects/ar-waveguide.html">
+<link rel="alternate" hreflang="x-default" href="https://jin-castle.github.io/projects/ar-waveguide.html">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="../index.html">Jinseong Bae</a>
+  <nav><a class="lang" href="../en/projects/ar-waveguide.html" hreflang="en" lang="en">EN</a><a href="../index.html#ar-waveguide">← 홈으로</a><a class="hide-sm" href="./open-science.html">다음 프로젝트 →</a></nav>
+</header>
+
+<div class="hero">
+  <p class="idx">05 — AR WAVEGUIDE · End-to-end optics</p>
+  <h1>AR 도파관 격자를 역설계하고<br>망막 이미지까지 시뮬레이션하다</h1>
+  <p class="lead">AR 글래스 한쪽 광학계를 처음부터 끝까지 계산했습니다. 주기 2 µm 자유형상 in/out 커플러를 RCWA 직접 미분으로 역설계하고, 1차 fold 격자를 붙인 뒤, 상용 사양 eyebox(12 × 10 mm, eye relief 18 mm)에서 눈 위치별 망막 이미지와 차수 고스트까지 시뮬레이션했습니다. 녹색 540 nm 단색입니다.</p>
+  <ul class="kpis">
+    <li><b>0.75</b><span>in-coupler +5차 결합 효율, 25개 각도 평균 (순도 0.994)</span></li>
+    <li><b>0.049 → 0.383<small>%</small></b><span>눈에 닿는 화면 평균 밝기, 기존 1차 설계 대비</span></li>
+    <li><b>0.49 → 0.35</b><span>화면 밝기 CV, 각도 샘플링 5 → 51개</span></li>
+    <li><b>0.006</b><span>고스트 / 주 화면 밝기 비</span></li>
+  </ul>
+  <p class="tags"><span>fmmax RCWA (JAX)</span><span>Adam · conic filter · β 연속</span><span>beam tracing</span><span>Meep 2D 교차 확인</span></p>
+</div>
+
+<div class="wrap">
+  <nav class="toc" aria-label="목차">
+    <a href="#why">문제와 동기</a><a href="#setup">시뮬레이션 설정</a><a href="#method">방법</a>
+    <a href="#unitcell">단위셀 결과</a><a href="#stripes">세로줄 문제</a><a href="#system">시스템 결과</a>
+    <a href="#validation">검증</a><a href="#limits">한계</a><a href="#code">코드</a>
+  </nav>
+  <article>
+    <section id="why">
+      <h2>문제와 동기</h2>
+      <p>회절 도파관 AR 글래스는 마이크로 디스플레이의 빛을 in-coupler 격자로 유리판 안에 넣고, 전반사로 옮긴 뒤 out-coupler로 눈 앞에서 꺼냅니다. 단위셀 효율이 높아도 시야 각도별로 고르지 않거나, 원치 않는 차수가 고스트로 새면 눈에 보이는 이미지는 나빠집니다.</p>
+      <p>출발점은 같은 연구실에서 공개된 논문 S. Lee, B. Lee, H. Chung, <a href="https://doi.org/10.1515/nanoph-2025-0501" target="_blank" rel="noopener"><em>Nanophotonics</em> 14(27), 5555 (2025)</a>입니다. 이 논문은 주기 2 µm에서 고차(+5차)로 결합하는 자유형상 커플러의 단위셀 최적화를 보였고, eyebox와 망막 이미지 같은 시스템 수준은 향후 과제로 남겼습니다. 여기서는 원문 조건을 재현한 뒤, 그 시스템 수준까지 직접 이었습니다.</p>
+    </section>
+
+    <section id="setup">
+      <h2>시뮬레이션 설정</h2>
+      <h3>단위셀 (RCWA)</h3>
+      <table class="spec">
+        <tr><th>솔버</th><td>fmmax (JAX), FFT 정식화, 1D 확장 M = 20 (차수 41개), float64</td></tr>
+        <tr><th>구조</th><td>주기 2.0 µm, 높이 0.8 µm, x–z 40층 × 100픽셀 (20 nm) 자유형상</td></tr>
+        <tr><th>재료</th><td>TiO₂ n 2.4 (가정값) / 유리 도파관 n 2.0, 두께 0.5 mm</td></tr>
+        <tr><th>파장·편광</th><td>540 nm 단색, 두 편광 평균(비편광)</td></tr>
+        <tr><th>시야</th><td>화면 30° × 17°. in-coupler 5 × 5 = 25각, out-coupler 17 × 3 = 51각</td></tr>
+        <tr><th>목적함수</th><td>IC: +5차 투과를 1로, 도파 차수 중 +5차 비율을 1로.<br>OC: 출사 T₅를 목표 α_T로, 0차 반사 R₀를 1 − α_T로, 투시(see-through) 0차 비율을 1로</td></tr>
+      </table>
+      <h3>시스템 (beam tracing)</h3>
+      <table class="spec">
+        <tr><th>배치</th><td>IC → fold (7 × 16 mm) → OC (22 × 16 mm, 5구간), eyebox 12 × 10 mm, eye relief 18 mm, 동공 Ø 3 mm</td></tr>
+        <tr><th>모델</th><td>격자점 동적 계획법으로 도파 경로를 추적. IC 차수 4–7과 모든 출사 차수를 세어 고스트 포함. 비간섭·비편광</td></tr>
+        <tr><th>망막 이미지</th><td>원본 이미지 × 각도별 전달 효율 (PSF·수차는 넣지 않음)</td></tr>
+      </table>
+      <figure><a href="./img/ar-waveguide/layout.webp"><img src="./img/ar-waveguide/layout.webp" alt="AR 도파관 시스템 배치" loading="lazy"></a>
+        <figcaption><b>그림 1</b>시스템 배치: in-coupler, fold(duty 0.3 → 0.6), out-coupler 5구간(α_T 0.05–0.40), eyebox 격자점. 아래는 구간별 단위셀 단면과 계산 설정.</figcaption></figure>
+    </section>
+
+    <section id="method">
+      <h2>방법</h2>
+      <ol class="steps">
+        <li><b>원문 조건 재현</b>주기·차수·목적함수·필터를 원문에 맞추고, 원문 Table 1의 k-space 조건을 다시 계산해 33개 모두 일치를 확인했습니다.</li>
+        <li><b>in-coupler 역설계</b>Adam(학습률 0.03), conic filter 최소 크기 50 nm, tanh 투영 β 1 → 64 연속. 450회, 약 2.4시간(CPU).</li>
+        <li><b>out-coupler 5종</b>추출률 α_T = 0.05/0.10/0.15/0.25/0.40 각각 450회. 이후 각도를 51개로 늘려 150회 재최적화했습니다.</li>
+        <li><b>배치 탐색</b>각도별 효율표(LUT)를 만들고, OC 5구간 배치와 fold 깊이·duty를 번갈아 두 번 탐색했습니다.</li>
+        <li><b>시스템 시뮬레이션</b>눈 위치별 화면 밝기, eyebox 균일도, 고스트, 망막 이미지를 계산했습니다.</li>
+      </ol>
+    </section>
+
+    <section id="unitcell">
+      <h2>단위셀 결과</h2>
+      <figure><a href="./img/ar-waveguide/designs.webp"><img src="./img/ar-waveguide/designs.webp" alt="자유형상 단위셀과 최적화 이력" loading="lazy"></a>
+        <figcaption><b>그림 2</b>위: in-coupler와 out-coupler 5종의 최종 단면. 가운데: 최적화 이력과 각도별 효율·순도 지도. 아래: α_T별 목표 대비 결과 표.</figcaption></figure>
+      <table class="spec">
+        <tr><th>in-coupler</th><td>+5차 T 평균 <strong>0.753</strong> (최소 0.674, 최대 0.815), 도파 차수 중 +5차 비율 0.994. 원문 TE 약 60 %</td></tr>
+        <tr><th>out-coupler</th><td>목표 0.05/0.10/0.15/0.25/0.40 → 0.047/0.099/0.150/0.247/0.397, 다른 차수 누설 약 0.1 %</td></tr>
+        <tr><th>투시 0차</th><td>원문 지표(0차 비율)로 1.000, 절대 투과 T₀는 0.50–0.71</td></tr>
+      </table>
+      <figure><a href="./img/ar-waveguide/kspace.webp"><img src="./img/ar-waveguide/kspace.webp" alt="k-space 분석" loading="lazy"></a>
+        <figcaption><b>그림 3</b>k-space 분석: 파장별로 도파관 안에 갇히는 차수, 시야 전체가 들어가는 창, 다른 차수가 만드는 고스트 위치.</figcaption></figure>
+    </section>
+
+    <section id="stripes">
+      <h2>세로줄 문제 — 각도 사이에 숨은 Rayleigh anomaly</h2>
+      <p>처음 out-coupler는 가로 5개 각도에서만 최적화했습니다. 단위셀 지표는 좋았지만 망막 이미지에 세로줄이 나타났습니다. 주기 2 µm는 차수 간격이 0.27로 촘촘해서, 최적화하지 않은 각도 사이(±4.6°, ±6.3°, ±9.2°, ±11°)에서 새 차수가 열리고 닫히는 Rayleigh anomaly가 생깁니다. 그 각도에서 0차 반사 R₀가 0.95에서 0.81로 떨어져 화면 한 열이 어두워진 것입니다.</p>
+      <figure><a href="./img/ar-waveguide/anomaly.webp"><img src="./img/ar-waveguide/anomaly.webp" alt="Rayleigh anomaly와 각도 보강" loading="lazy"></a>
+        <figcaption><b>그림 4</b>위: 각도별 R₀와 T₅. 세로선이 anomaly, 삼각형이 최적화 각도. 아래: 5각(왼쪽)과 17 × 3각(오른쪽) 설계의 화면 밝기 지도.</figcaption></figure>
+      <p>anomaly 근처를 포함하도록 가로 17개 × 세로 3개 = 51개 각도로 다시 최적화하자 화면 CV가 0.49에서 0.35로, eyebox min/max가 0.48에서 0.50으로 나아졌습니다. 완전히 없앤 것은 아니고, 모서리 두 점(가로 +11°, 세로 ±8.6°)은 R₀ 0.76, ±5° 열은 약 30 % 어둡게 남았습니다.</p>
+      <div class="figs">
+        <figure><a href="./img/ar-waveguide/retina_sparse.webp"><img src="./img/ar-waveguide/retina_sparse.webp" alt="5각 설계 망막 이미지" loading="lazy"></a>
+          <figcaption><b>그림 5</b>5각 설계: 눈 위치별 망막 이미지(세로줄 보임).</figcaption></figure>
+        <figure><a href="./img/ar-waveguide/retina.webp"><img src="./img/ar-waveguide/retina.webp" alt="최종 설계 망막 이미지" loading="lazy"></a>
+          <figcaption><b>그림 6</b>최종 설계: 같은 눈 위치. 위 줄은 기존 1차(Λ 347 nm) 설계.</figcaption></figure>
+      </div>
+    </section>
+
+    <section id="system">
+      <h2>시스템 결과</h2>
+      <figure><a href="./img/ar-waveguide/maps.webp"><img src="./img/ar-waveguide/maps.webp" alt="화면과 eyebox 균일도" loading="lazy"></a>
+        <figcaption><b>그림 7</b>기존 1차 설계(위)와 최종 설계(아래)의 화면 밝기 지도, eyebox 균일도, 고스트 표.</figcaption></figure>
+      <table class="spec">
+        <tr><th>지표 (중앙 눈)</th><td>기존 Λ 347 nm 1차 → 5각 OC → <strong>51각 OC</strong></td></tr>
+        <tr><th>화면 평균 밝기</th><td>0.049 % → 0.325 % → <strong>0.383 %</strong></td></tr>
+        <tr><th>화면 CV</th><td>0.62 → 0.49 → <strong>0.35</strong></td></tr>
+        <tr><th>eyebox min/max</th><td>0.13 → 0.48 → <strong>0.50</strong></td></tr>
+        <tr><th>고스트 / 주 화면</th><td>— → 0.018 → <strong>0.006</strong></td></tr>
+      </table>
+      <p class="note">기존 1차 설계 수치는 3파장 평균이고 이번 설계는 540 nm 단색이라 직접 비교에는 주의가 필요합니다. α_T 0.15를 모든 구간에 같게 쓰면 밝기 0.225 %, CV 0.74, min/max 0.09로, 구간별 추출률 배치가 균일도의 대부분을 만듭니다.</p>
+    </section>
+
+    <section id="validation">
+      <h2>검증</h2>
+      <ul>
+        <li><strong>Fourier 차수 수렴</strong>: M 20 대비 M 30·40의 최대 차이 IC 0.0014, OC 0.003.</li>
+        <li><strong>RCWA vs Meep 2D</strong>: 면내 입사, TE·TM, Bloch 주기, 해상도 100 px/µm. IC 수직 입사 TE 0.892 vs 0.901(해상도 200에서 0.897), TM 0.727 vs 0.729. 가장 큰 차이는 OC α_T 0.40의 끝 각도 TE에서 약 0.03. 에너지 합 0.987–1.008.</li>
+      </ul>
+      <p class="note">Meep 교차 확인은 대표 케이스 몇 개에 대한 점검이며, 해상도 200은 한 케이스만 돌렸습니다.</p>
+    </section>
+
+    <section id="limits">
+      <h2>한계와 주장하지 않는 것</h2>
+      <div class="claims">
+        <div><h3>주장하는 것</h3><ul>
+          <li>Λ 2 µm 고차 결합 커플러를 RCWA 미분으로 재설계하고 시스템 이미지까지 연결했다</li>
+          <li>각도 샘플링이 성기면 anomaly가 이미지에 세로줄을 만든다는 원인을 찾고 크게 줄였다</li>
+        </ul></div>
+        <div class="no"><h3>주장하지 않는 것</h3><ul>
+          <li>RGB 컬러 — 녹색 단색만 계산했다</li>
+          <li>PSF·MTF, 간섭, 도파관 안 2차 고스트 — 모델에 없다</li>
+          <li>TiO₂ n 2.4와 높이 0.8 µm는 가정값이며, 공차·제작·실측은 하지 않았다</li>
+        </ul></div>
+      </div>
+    </section>
+
+    <section id="code">
+      <h2>코드 구성</h2>
+      <ul>
+        <li><code>rcwa/lee_cell.py</code>, <code>rcwa/lee_opt.py</code> — 단위셀 모델과 역설계 (<code>--part ic|oc</code>, <code>--dense</code>)</li>
+        <li><code>rcwa/lut_lee.py</code> — 각도별 효율표</li>
+        <li><code>rcwa/system_sim_lee.py</code> — fold·OC 배치 탐색과 전체 시스템 시뮬레이션</li>
+        <li><code>meep_t1/lee_xcheck.py</code> — Meep 2D 교차 확인</li>
+        <li><code>figs/make_lee_*.py</code> — 그림</li>
+      </ul>
+      <p>모든 계산은 개인 PC의 WSL CPU에서 했습니다. 2026년 10월 27일 작업입니다.</p>
+    </section>
+  </article>
+</div>
+
+<nav class="pager">
+  <a href="./ai-physics.html"><small>← 이전</small>AI × Physics</a>
+  <a class="next" href="./open-science.html"><small>다음 →</small>Open Science · Meep 해설</a>
+</nav>
+<footer>© 2026 Jinseong Bae · 그림은 모두 본인 시뮬레이션 출력입니다. 원 설계 조건은 Lee, Lee, Chung (2025)을 따랐습니다. 무단 복제·재배포 금지 · <a href="../LICENSE.txt">LICENSE</a></footer>
+<script src="./project.js"></script>
+</body>
+</html>

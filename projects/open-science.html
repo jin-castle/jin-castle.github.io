@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Open Science · Jinseong Bae</title>
+<meta name="description" content="Meep 공식 예제를 직접 다시 돌리고, 수렴성과 주장할 수 있는 것과 없는 것까지 적은 한국어 해설 시리즈 14편.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<meta property="og:url" content="https://jin-castle.github.io/projects/open-science.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Open Science · Jinseong Bae">
+<meta property="og:description" content="Meep 공식 예제를 직접 다시 돌리고, 수렴성과 주장할 수 있는 것과 없는 것까지 적은 한국어 해설 시리즈 14편.">
+<meta property="og:image" content="https://jin-castle.github.io/img/og-open-science.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link rel="stylesheet" href="./project.css">
+<style>
+  .posts-table td:first-child { color: var(--accent); font-weight: 600; width: 3em; white-space: nowrap; }
+  .posts-table td:nth-child(3) { color: var(--muted); font-size: 13.5px; }
+</style>
+<link rel="alternate" hreflang="ko" href="https://jin-castle.github.io/projects/open-science.html">
+<link rel="alternate" hreflang="en" href="https://jin-castle.github.io/en/projects/open-science.html">
+<link rel="alternate" hreflang="x-default" href="https://jin-castle.github.io/projects/open-science.html">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="../index.html">Jinseong Bae</a>
+  <nav><a class="lang" href="../en/projects/open-science.html" hreflang="en" lang="en">EN</a><a href="../index.html#open-science">← 홈으로</a><a class="hide-sm" href="https://jin-castle.github.io/meep-examples/" target="_blank" rel="noopener">블로그 열기 ↗</a></nav>
+</header>
+
+<div class="hero">
+  <p class="idx">06 — OPEN SCIENCE · Meep examples, explained</p>
+  <h1>Meep 공식 예제를 재현하고<br>한국어로 해설하다</h1>
+  <p class="lead">FDTD 오픈소스 Meep의 공식 예제를 직접 다시 돌리고, 입문자가 처음 봐도 따라갈 수 있게 한국어로 해설합니다. 글마다 실행 가능한 코드, 다시 돌린 수치, 해상도·PML 수렴 표, 그리고 그 결과로 "주장할 수 있는 것과 없는 것"을 적습니다. 영어 요약도 함께 싣습니다.</p>
+  <ul class="kpis">
+    <li><b>14</b><span>발행한 해설 글 (15편 작성 중)</span></li>
+    <li><b>14 / 14</b><span>수렴 표와 "주장할 수 있는 것·없는 것"이 있는 글</span></li>
+    <li><b>0.015 → 0.780</b><span>09편 bend adjoint, 출력 mode-1 투과율 (별도 run 검증)</span></li>
+  </ul>
+  <p class="tags"><span>Meep 1.33</span><span>Python</span><span>GitHub Pages</span><span>한국어 · English TL;DR</span></p>
+</div>
+
+<div class="wrap">
+  <nav class="toc" aria-label="목차">
+    <a href="#why">왜 쓰는가</a><a href="#rules">글의 규칙</a><a href="#posts">14편</a>
+    <a href="#example">예: 09편</a><a href="#pipeline">재실행·발행</a><a href="#limits">한계</a>
+  </nav>
+  <article>
+    <section id="why">
+      <h2>왜 쓰는가</h2>
+      <p>Meep 문서는 API를 나열하는 데 강하지만, FDTD를 처음 접하는 사람에게는 "왜 이 파원을 여기 두는지", "이 숫자를 얼마나 믿어도 되는지"가 빠져 있습니다. 대상 독자는 파이썬은 알지만 FDTD는 처음이고, 광학 기초는 아는 사람입니다.</p>
+      <p>공식 예제의 재현성을 지키면서, 실행 전에 결과를 먼저 예측해 보고, 틀린 예측도 숨기지 않습니다. 10편부터는 "빛을 가두고 → 꺼내고 → 보내기" 순서로 이어집니다.</p>
+    </section>
+
+    <section id="rules">
+      <h2>글의 규칙</h2>
+      <ol class="steps">
+        <li><b>예측 먼저</b>계산 전에 예측 표를 쓰고, 결과 비교 표와 같은 행으로 맞춥니다.</li>
+        <li><b>소스부터 보기</b>파원의 시간 파형과 스펙트럼을 그림으로 확인합니다.</li>
+        <li><b>7단계 코드</b>단계마다 "무엇을 / 왜 / 틀리면 어떻게 되는지" 세 줄을 붙입니다.</li>
+        <li><b>수렴 표</b>해상도와 PML 두께를 2–3점씩 바꿔 숫자가 얼마나 움직이는지 보입니다.</li>
+        <li><b>주장의 경계</b>"주장할 수 있는 것"과 "주장할 수 없는 것"을 한 줄씩 씁니다.</li>
+        <li><b>클린 코드 재실행</b>블로그에 싣는 코드를 다시 돌려 본문 수치를 재확인합니다.</li>
+      </ol>
+      <p>축은 nm·µm 물리 단위로 쓰고, 비유나 이모지 없이 수치는 표에만 둡니다.</p>
+    </section>
+
+    <section id="posts">
+      <h2>발행한 14편</h2>
+      <table class="spec posts-table">
+        <tr><td>01</td><td>점광원과 선광원 — 파원 배치, 펄스 시각, flux box</td><td>선광원 한쪽 면 0.92</td></tr>
+        <tr><td>02</td><td>경계 조건과 PML — 반사 경계·PML·Absorber 비교</td><td>PML 1 µm 반사 0.045 %</td></tr>
+        <tr><td>03</td><td>Reference run 빼기 — 입사·전체·산란장</td><td>산란 단면적 2.515 vs Mie 2.513</td></tr>
+        <tr><td>04</td><td>직선 도파로와 guided mode</td><td>모드 투과 1.0000, 반사 8e-6</td></tr>
+        <tr><td>05</td><td>굽은 도파로와 반경</td><td>날카로운 굽힘 0.20 → r 0.7 µm 0.99</td></tr>
+        <tr><td>06</td><td>Binary grating과 회절 차수</td><td>0차 0.759, ±1차 각 0.088</td></tr>
+        <tr><td>07</td><td>Meta-atom과 위상 라이브러리</td><td>+1차 0.51 (4단계 상한의 63 %)</td></tr>
+        <tr><td>08</td><td>Metagrating 역설계 — forward·adjoint·기울기·검증</td><td>+1차 0.496 → 0.623</td></tr>
+        <tr><td>09</td><td>굽은 도파로 역설계 — 자유 설계 영역</td><td>모드 투과 0.015 → 0.780</td></tr>
+        <tr><td>10</td><td>점광원의 3D 방사 패턴 — image dipole</td><td>해석해 대비 L2 0.22 %</td></tr>
+        <tr><td>11</td><td>두 거울 사이 점광원 — LDOS와 Purcell</td><td>해석해 대비 중앙값 0.94 %</td></tr>
+        <tr><td>12</td><td>링 공진기 — Harminv, Q, FSR</td><td>n_g 3.69, 주파수 차 0.3 % 미만</td></tr>
+        <tr><td>13</td><td>원통 좌표로 3D 계산 — m 급수</td><td>3D 대비 0.43–0.63 %</td></tr>
+        <tr><td>14</td><td>박막 속 점광원의 광추출 효율</td><td>0.323 (res 80)</td></tr>
+      </table>
+      <div class="figs">
+        <figure><a href="./img/open-science/pml.webp"><img src="./img/open-science/pml.webp" alt="PML 유무 비교" loading="lazy"></a>
+          <figcaption><b>02편</b>같은 파원, 같은 시각: 흡수층이 없으면 경계 반사가 남고(가장자리 RMS 0.122) PML 1 µm에서는 사라집니다(0.0015).</figcaption></figure>
+        <figure><a href="./img/open-science/scatter.webp"><img src="./img/open-science/scatter.webp" alt="입사 전체 산란장" loading="lazy"></a>
+          <figcaption><b>03편</b>원기둥이 없는 run과 있는 run을 빼서 산란장만 남깁니다.</figcaption></figure>
+        <figure><a href="./img/open-science/ring_modes.webp"><img src="./img/open-science/ring_modes.webp" alt="링 공진 모드" loading="lazy"></a>
+          <figcaption><b>12편</b>링 공진 모드 m = 3, 4, 5와 둘레를 따라 센 파장 수.</figcaption></figure>
+        <figure><a href="./img/open-science/pec.webp"><img src="./img/open-science/pec.webp" alt="PEC 거울 위 쌍극자 방사" loading="lazy"></a>
+          <figcaption><b>10편</b>PEC 거울 위 쌍극자의 방사 패턴을 해석해와 세 방법으로 비교하고, 각 방법이 틀어지는 각도를 표시.</figcaption></figure>
+      </div>
+    </section>
+
+    <section id="example">
+      <h2>예: 09편 — 숫자를 어디까지 말할 수 있나</h2>
+      <p>11 × 11 자유 설계 영역으로 90° 굽은 도파로를 역설계하는 예제입니다. 최적화 뒤 별도 run으로 다시 재면 출력 mode-1 투과율이 0.015에서 0.780으로 오릅니다.</p>
+      <div class="figs">
+        <figure><a href="./img/open-science/bend_verify.webp"><img src="./img/open-science/bend_verify.webp" alt="bend 역설계 검증" loading="lazy"></a>
+          <figcaption><b>그림</b>별도 run 검증: 출발점과 최적화 후의 투과율, Re(Ez).</figcaption></figure>
+        <figure class="dark"><a href="./img/open-science/bend_anim.gif"><img src="./img/open-science/bend_anim.gif" alt="최적화된 bend를 지나는 필드 애니메이션" loading="lazy"></a>
+          <figcaption><b>애니메이션</b>최적화된 굽은 도파로를 지나는 필드.</figcaption></figure>
+      </div>
+      <p>그리고 같은 글에 이렇게 적었습니다.</p>
+      <div class="claims">
+        <div><h3>주장할 수 있는 것</h3><ul>
+          <li>adjoint 기울기 5회로 출력 모드 투과율이 0.015 → 0.780 (별도 run)</li>
+        </ul></div>
+        <div class="no"><h3>주장할 수 없는 것</h3><ul>
+          <li>"0.78짜리 굽은 도파로를 설계했다" — 121픽셀 중 119개가 회색</li>
+          <li>수렴했다 — 평가 5회는 수렴이 아님, 해상도 20에서는 0.64</li>
+        </ul></div>
+      </div>
+    </section>
+
+    <section id="pipeline">
+      <h2>재실행과 발행</h2>
+      <ul>
+        <li>블로그용 클린 스크립트를 WSL에서 공통 실행 래퍼로 돌리고, 결과 수치와 그림을 글마다 JSON으로 남깁니다 (Meep 1.33.0).</li>
+        <li>코드는 무차원 단위로 두고, 그림에서만 1550 nm 기준 물리 단위로 바꿉니다.</li>
+        <li>원고(Markdown) → 빌드 스크립트 → GitHub Pages(Jekyll, MathJax)로 발행합니다.</li>
+      </ul>
+      <p class="links"><a href="https://jin-castle.github.io/meep-examples/" target="_blank" rel="noopener">블로그 열기 ↗</a></p>
+    </section>
+
+    <section id="limits">
+      <h2>한계</h2>
+      <ul>
+        <li>공식 예제의 재현과 해설이며 새로운 연구 결과가 아닙니다.</li>
+        <li>01–09편은 대학 Meep 실습 순서를 빌려 구성했고, 각 글에 그 실습 노트북과의 차이를 적었습니다.</li>
+        <li>공식 예제를 개작한 코드는 Meep의 GPL-2+ 조건을 따릅니다.</li>
+      </ul>
+    </section>
+  </article>
+</div>
+
+<nav class="pager">
+  <a href="./ar-waveguide.html"><small>← 이전</small>AR Waveguide</a>
+  <a class="next" href="../index.html#about"><small>홈 →</small>Career · Contact</a>
+</nav>
+<footer>© 2026 Jinseong Bae · 그림은 모두 본인이 다시 실행한 계산 출력입니다. 무단 복제·재배포 금지 · <a href="../LICENSE.txt">LICENSE</a></footer>
+<script src="./project.js"></script>
+</body>
+</html>

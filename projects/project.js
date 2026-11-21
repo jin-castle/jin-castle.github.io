@@ -1,0 +1,1 @@
+const links=[...document.querySelectorAll(".toc a")],byId=new Map(links.map(e=>[e.getAttribute("href").slice(1),e])),io=new IntersectionObserver(e=>{for(const t of e)t.isIntersecting&&(links.forEach(o=>o.classList.remove("on")),byId.get(t.target.id)?.classList.add("on"))},{rootMargin:"-30% 0px -60% 0px"});document.querySelectorAll("article section[id]").forEach(e=>io.observe(e));

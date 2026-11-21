@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Open Science · Jinseong Bae</title>
+<meta name="description" content="A 14-post series that reruns the official Meep examples and records convergence and what each result does and does not show, written in Korean, with an English TL;DR.">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:url" content="https://jin-castle.github.io/en/projects/open-science.html">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="en_US">
+<meta property="og:title" content="Open Science · Jinseong Bae">
+<meta property="og:description" content="A 14-post series that reruns the official Meep examples and records convergence and what each result does and does not show, written in Korean, with an English TL;DR.">
+<meta property="og:image" content="https://jin-castle.github.io/img/og-open-science.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link rel="stylesheet" href="../../projects/project.css">
+<style>
+  .posts-table td:first-child { color: var(--accent); font-weight: 600; width: 3em; white-space: nowrap; }
+  .posts-table td:nth-child(3) { color: var(--muted); font-size: 13.5px; }
+</style>
+<link rel="alternate" hreflang="ko" href="https://jin-castle.github.io/projects/open-science.html">
+<link rel="alternate" hreflang="en" href="https://jin-castle.github.io/en/projects/open-science.html">
+<link rel="alternate" hreflang="x-default" href="https://jin-castle.github.io/projects/open-science.html">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="../index.html">Jinseong Bae</a>
+  <nav><a class="lang" href="../../projects/open-science.html" hreflang="ko" lang="ko">한국어</a><a href="../index.html#open-science">← Home</a><a class="hide-sm" href="https://jin-castle.github.io/meep-examples/" target="_blank" rel="noopener">Open the blog ↗</a></nav>
+</header>
+
+<div class="hero">
+  <p class="idx">06 — OPEN SCIENCE · Meep examples, explained</p>
+  <h1>Reproducing the official Meep examples<br>with Korean walkthroughs</h1>
+  <p class="lead">I rerun the official examples of Meep, the open-source FDTD package, myself and explain them in Korean so that a first-time reader can follow along. Each post gives runnable code, the rerun values, resolution and PML convergence tables, and, based on those results, "what it shows and what it does not show". An English summary is included as well.</p>
+  <ul class="kpis">
+    <li><b>14</b><span>Published posts (post 15 in progress)</span></li>
+    <li><b>14 / 14</b><span>Posts with a convergence table and "what it shows / what it does not show"</span></li>
+    <li><b>0.015 → 0.780</b><span>Post 09 bend adjoint, output mode-1 transmittance (checked in a separate run)</span></li>
+  </ul>
+  <p class="tags"><span>Meep 1.33</span><span>Python</span><span>GitHub Pages</span><span>Korean · English TL;DR</span></p>
+</div>
+
+<div class="wrap">
+  <nav class="toc" aria-label="Contents">
+    <a href="#why">Why write it</a><a href="#rules">Post rules</a><a href="#posts">14 posts</a>
+    <a href="#example">Example: post 09</a><a href="#pipeline">Rerun and publishing</a><a href="#limits">Limitations</a>
+  </nav>
+  <article>
+    <section id="why">
+      <h2>Why write it</h2>
+      <p>The Meep documentation is strong at listing the API, but for someone new to FDTD it leaves out "why this source is placed here" and "how far this number can be trusted". The intended reader knows Python and basic optics but is new to FDTD.</p>
+      <p>The series keeps the official examples reproducible, predicts each result before running it, and does not hide wrong predictions. From post 10 on, it follows the order "confine light → extract it → send it".</p>
+    </section>
+
+    <section id="rules">
+      <h2>Post rules</h2>
+      <ol class="steps">
+        <li><b>Predict first</b>Before computing, write a prediction table whose rows match the results comparison table.</li>
+        <li><b>Look at the source first</b>Check the source's time waveform and spectrum in a figure.</li>
+        <li><b>Code in 7 steps</b>Each step gets three lines: "what / why / what happens if it is wrong".</li>
+        <li><b>Convergence table</b>Vary resolution and PML thickness at 2–3 points each to show how much the numbers move.</li>
+        <li><b>Limits of the claims</b>Write "what it shows" and "what it does not show", one line each.</li>
+        <li><b>Clean-code rerun</b>Rerun the code published on the blog and recheck the values in the text.</li>
+      </ol>
+      <p>Axes use physical units (nm, µm). There are no analogies or emoji, and numbers go only in tables.</p>
+    </section>
+
+    <section id="posts">
+      <h2>14 published posts</h2>
+      <table class="spec posts-table">
+        <tr><td>01</td><td>Point and line sources — source placement, pulse timing, flux box</td><td>Line source, one side 0.92</td></tr>
+        <tr><td>02</td><td>Boundary conditions and PML — comparing reflecting boundaries, PML and Absorber</td><td>PML 1 µm, reflection 0.045 %</td></tr>
+        <tr><td>03</td><td>Subtracting a reference run — incident, total and scattered fields</td><td>Scattering cross section 2.515 vs Mie 2.513</td></tr>
+        <tr><td>04</td><td>Straight waveguide and guided modes</td><td>Mode transmission 1.0000, reflection 8e-6</td></tr>
+        <tr><td>05</td><td>Bent waveguide and bend radius</td><td>Sharp bend 0.20 → r 0.7 µm 0.99</td></tr>
+        <tr><td>06</td><td>Binary grating and diffraction orders</td><td>zeroth order 0.759, ±1st order 0.088 each</td></tr>
+        <tr><td>07</td><td>Meta-atoms and phase libraries</td><td>+1st order 0.51 (63 % of the 4-level upper bound)</td></tr>
+        <tr><td>08</td><td>Metagrating inverse design — forward, adjoint, gradient, validation</td><td>+1st order 0.496 → 0.623</td></tr>
+        <tr><td>09</td><td>Bent-waveguide inverse design — free design region</td><td>Mode transmission 0.015 → 0.780</td></tr>
+        <tr><td>10</td><td>3D radiation pattern of a point source — image dipole</td><td>L2 0.22 % vs analytic solution</td></tr>
+        <tr><td>11</td><td>Point source between two mirrors — LDOS and Purcell</td><td>Median 0.94 % vs analytic solution</td></tr>
+        <tr><td>12</td><td>Ring resonator — Harminv, Q, FSR</td><td>n_g 3.69, frequency difference below 0.3 %</td></tr>
+        <tr><td>13</td><td>3D computation in cylindrical coordinates — m series</td><td>0.43–0.63 % vs 3D</td></tr>
+        <tr><td>14</td><td>Light-extraction efficiency of a point source in a thin film</td><td>0.323 (res 80)</td></tr>
+      </table>
+      <div class="figs">
+        <figure><a href="../../projects/img/open-science/pml.webp"><img src="../../projects/img/open-science/pml.webp" alt="With and without PML" loading="lazy"></a>
+          <figcaption><b>Post 02</b>Same source, same time: without an absorbing layer, boundary reflections remain (edge RMS 0.122); with PML 1 µm they disappear (0.0015).</figcaption></figure>
+        <figure><a href="../../projects/img/open-science/scatter.webp"><img src="../../projects/img/open-science/scatter.webp" alt="Incident, total and scattered fields" loading="lazy"></a>
+          <figcaption><b>Post 03</b>Subtracting the run without the cylinder from the run with it leaves only the scattered field.</figcaption></figure>
+        <figure><a href="../../projects/img/open-science/ring_modes.webp"><img src="../../projects/img/open-science/ring_modes.webp" alt="Ring resonance modes" loading="lazy"></a>
+          <figcaption><b>Post 12</b>Ring resonance modes m = 3, 4, 5 and the number of wavelengths counted around the circumference.</figcaption></figure>
+        <figure><a href="../../projects/img/open-science/pec.webp"><img src="../../projects/img/open-science/pec.webp" alt="Dipole radiation above a PEC mirror" loading="lazy"></a>
+          <figcaption><b>Post 10</b>Radiation pattern of a dipole above a PEC mirror, compared with the analytic solution by three methods, with the angles where each method deviates marked.</figcaption></figure>
+      </div>
+    </section>
+
+    <section id="example">
+      <h2>Example: post 09 — how far the numbers can be taken</h2>
+      <p>This example inverse-designs a 90° bent waveguide with an 11 × 11 free design region. Measured again in a separate run after optimization, the output mode-1 transmittance rises from 0.015 to 0.780.</p>
+      <div class="figs">
+        <figure><a href="../../projects/img/open-science/bend_verify.webp"><img src="../../projects/img/open-science/bend_verify.webp" alt="Bend inverse-design validation" loading="lazy"></a>
+          <figcaption><b>Figure</b>Separate-run validation: transmittance and Re(Ez) at the starting point and after optimization.</figcaption></figure>
+        <figure class="dark"><a href="../../projects/img/open-science/bend_anim.gif"><img src="../../projects/img/open-science/bend_anim.gif" alt="Animation of the field passing through the optimized bend" loading="lazy"></a>
+          <figcaption><b>Animation</b>Field passing through the optimized bent waveguide.</figcaption></figure>
+      </div>
+      <p>The same post then states the following.</p>
+      <div class="claims">
+        <div><h3>What it shows</h3><ul>
+          <li>With 5 adjoint gradient evaluations, output mode transmittance goes 0.015 → 0.780 (separate run)</li>
+        </ul></div>
+        <div class="no"><h3>What it does not show</h3><ul>
+          <li>"I designed a 0.78 bent waveguide" — 119 of the 121 pixels are gray</li>
+          <li>That it converged — 5 evaluations is not convergence; at resolution 20 the value is 0.64</li>
+        </ul></div>
+      </div>
+    </section>
+
+    <section id="pipeline">
+      <h2>Rerun and publishing</h2>
+      <ul>
+        <li>The clean blog scripts run in WSL through a common run wrapper, and the result values and figures for each post are recorded in JSON (Meep 1.33.0).</li>
+        <li>Code stays in dimensionless units; only the figures are converted to physical units, based on 1550 nm.</li>
+        <li>Manuscript (Markdown) → build script → published on GitHub Pages (Jekyll, MathJax).</li>
+      </ul>
+      <p class="links"><a href="https://jin-castle.github.io/meep-examples/" target="_blank" rel="noopener">Open the blog ↗</a></p>
+    </section>
+
+    <section id="limits">
+      <h2>Limitations</h2>
+      <ul>
+        <li>This is a reproduction and explanation of official examples, not new research results.</li>
+        <li>Posts 01–09 borrow their order from a university Meep lab course, and each post notes how it differs from the corresponding lab notebook.</li>
+        <li>Code adapted from the official examples follows Meep's GPL-2+ terms.</li>
+      </ul>
+    </section>
+  </article>
+</div>
+
+<nav class="pager">
+  <a href="./ar-waveguide.html"><small>← Previous</small>AR Waveguide</a>
+  <a class="next" href="../index.html#about"><small>Home →</small>Career · Contact</a>
+</nav>
+<footer>© 2026 Jinseong Bae · All figures are outputs of computations I reran myself. No copying or redistribution without permission · <a href="../../LICENSE.txt">LICENSE</a></footer>
+<script src="../../projects/project.js"></script>
+</body>
+</html>
